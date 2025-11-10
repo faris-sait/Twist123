@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClerkSupabaseClient, getClerkUserId } from '@/lib/supabase/clerk-client';
+import { createServiceSupabaseClient } from '@/lib/supabase/service-client';
 
 // GET /api/posts - Get posts feed (all public posts)
 export async function GET(request) {
@@ -94,6 +95,36 @@ export async function POST(request) {
 
     if (error) {
       throw error;
+    }
+
+    // Create notifications for friends when user posts
+    try {
+      const serviceSupabase = createServiceSupabaseClient();
+      
+      // Get all accepted friends
+      const { data: friendships } = await serviceSupabase
+        .from('friendships')
+        .select('requester_id, addressee_id')
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${profile.id},addressee_id.eq.${profile.id}`);
+
+      if (friendships && friendships.length > 0) {
+        // Create notification for each friend
+        const notifications = friendships.map(friendship => ({
+          user_id: friendship.requester_id === profile.id ? friendship.addressee_id : friendship.requester_id,
+          actor_id: profile.id,
+          type: 'friend_post',
+          post_id: data.id,
+          is_read: false,
+        }));
+
+        await serviceSupabase
+          .from('notifications')
+          .insert(notifications);
+      }
+    } catch (notifError) {
+      console.error('Error creating notifications:', notifError);
+      // Don't fail the post creation if notifications fail
     }
 
     return NextResponse.json({ post: data }, { status: 201 });

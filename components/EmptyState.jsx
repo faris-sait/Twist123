@@ -1,9 +1,9 @@
 'use client';
 
 import { Card, CardContent } from '@/components/ui/card';
-import { FileText, Users, MessageSquare } from 'lucide-react';
+import { FileText, Users, MessageSquare, UserPlus, Inbox } from 'lucide-react';
 
-export function EmptyState({ type = 'posts' }) {
+export function EmptyState({ type = 'posts', message, description }) {
   const configs = {
     posts: {
       icon: FileText,
@@ -20,10 +20,24 @@ export function EmptyState({ type = 'posts' }) {
       title: 'No comments yet',
       description: 'Start the conversation!',
     },
+    friends: {
+      icon: Users,
+      title: 'No friends yet',
+      description: 'Search for users and send friend requests to connect!',
+    },
+    requests: {
+      icon: UserPlus,
+      title: 'No friend requests',
+      description: 'When someone sends you a friend request, it will appear here.',
+    },
   };
 
   const config = configs[type] || configs.posts;
   const Icon = config.icon;
+  
+  // Allow custom message and description to override defaults
+  const finalTitle = message || config.title;
+  const finalDescription = description || config.description;
 
   return (
     <Card className="shadow-lg border-2">
@@ -33,8 +47,8 @@ export function EmptyState({ type = 'posts' }) {
             <Icon className="w-8 h-8 text-indigo-600" />
           </div>
           <div>
-            <h3 className="text-xl font-semibold mb-2">{config.title}</h3>
-            <p className="text-muted-foreground">{config.description}</p>
+            <h3 className="text-xl font-semibold mb-2">{finalTitle}</h3>
+            <p className="text-muted-foreground">{finalDescription}</p>
           </div>
         </div>
       </CardContent>

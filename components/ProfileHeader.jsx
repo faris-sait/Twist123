@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle2, MapPin, Link2, Calendar, Settings } from 'lucide-react';
 
-export function ProfileHeader({ profile, postsCount = 0, isOwnProfile = false }) {
+export function ProfileHeader({ profile, postsCount = 0, isOwnProfile = false, onEditProfile }) {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -40,6 +40,7 @@ export function ProfileHeader({ profile, postsCount = 0, isOwnProfile = false })
             variant="outline"
             size="sm"
             className="absolute top-4 right-4 border-2"
+            onClick={onEditProfile}
           >
             <Settings className="w-4 h-4 mr-2" />
             Edit Profile

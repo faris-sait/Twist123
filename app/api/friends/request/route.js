@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { createClerkSupabaseClient, getClerkUserId } from '@/lib/supabase/clerk-client';
+import { createServiceSupabaseClient } from '@/lib/supabase/service-client';
 
 // POST /api/friends/request - Send friend request
 export async function POST(request) {
   try {
     const clerkUserId = await getClerkUserId();
     const supabase = await createClerkSupabaseClient();
+    const serviceClient = createServiceSupabaseClient();
     const body = await request.json();
     const { addressee_id } = body;
 
@@ -65,6 +67,21 @@ export async function POST(request) {
 
     if (error) {
       throw error;
+    }
+
+    // Create notification for the addressee using service client to bypass RLS
+    try {
+      await serviceClient
+        .from('notifications')
+        .insert([{
+          user_id: addressee_id,
+          actor_id: profile.id,
+          type: 'friend_request',
+          is_read: false,
+        }]);
+    } catch (notifError) {
+      console.error('Error creating friend request notification:', notifError);
+      // Don't fail the request if notification fails
     }
 
     return NextResponse.json({ friendship: data }, { status: 201 });

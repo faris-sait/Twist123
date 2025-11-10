@@ -12,8 +12,15 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <ClerkProvider>
-      <html lang="en">
-        <body className={inter.className}>{children}</body>
+      <html lang="en" className="dark">
+        <body className={inter.className}>
+          {/* Animated Background */}
+          <div className="animated-bg">
+            <div className="orb orb-1"></div>
+            <div className="orb orb-2"></div>
+          </div>
+          {children}
+        </body>
       </html>
     </ClerkProvider>
   );

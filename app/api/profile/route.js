@@ -16,8 +16,52 @@ export async function GET() {
 
     if (error) {
       if (error.code === 'PGRST116') {
-        // No profile found
-        return NextResponse.json({ profile: null }, { status: 200 });
+        // No profile found - auto-create one
+        console.log('No profile found, creating automatically...');
+        
+        const user = await currentUser();
+        
+        // Generate username from email or Clerk username
+        const email = user?.emailAddresses?.[0]?.emailAddress;
+        const baseUsername = email 
+          ? email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
+          : user?.username || `user${clerkUserId.slice(0, 8)}`;
+        
+        // Check if username exists and make it unique
+        let username = baseUsername;
+        let counter = 1;
+        while (true) {
+          const { data: existing } = await supabase
+            .from('profiles')
+            .select('username')
+            .eq('username', username)
+            .single();
+          
+          if (!existing) break;
+          username = `${baseUsername}${counter}`;
+          counter++;
+        }
+
+        // Auto-create profile
+        const { data: newProfile, error: createError } = await supabase
+          .from('profiles')
+          .insert([{
+            clerk_user_id: clerkUserId,
+            username: username,
+            display_name: user?.firstName || user?.username || username,
+            avatar_url: user?.imageUrl || '',
+            bio: '',
+          }])
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('Error auto-creating profile:', createError);
+          return NextResponse.json({ profile: null }, { status: 200 });
+        }
+
+        console.log('Profile auto-created:', newProfile);
+        return NextResponse.json({ profile: newProfile }, { status: 200 });
       }
       throw error;
     }
