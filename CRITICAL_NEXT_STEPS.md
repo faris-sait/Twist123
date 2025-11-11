@@ -84,7 +84,7 @@ Without this, the app **WILL NOT WORK**. This creates the authentication bridge 
    - Algorithm: **HS256**
    - Signing Key: Paste this:
    ```
-   FN6/hxDyEo2A55TR3rju1+WmXHriVH3VFNz3i0+4NhqZd3ZHlnUG5GuKAsQ8sVhJrIDULCqGIP8NQXeiCKYWew==
+ 
    ```
 
 4. **Save Template**
