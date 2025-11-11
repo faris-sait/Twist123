@@ -48,7 +48,7 @@ Ensure these claims are present (should be auto-filled by Supabase template):
 - Paste your Supabase JWT Secret:
 
 ```
-FN6/hxDyEo2A55TR3rju1+WmXHriVH3VFNz3i0+4NhqZd3ZHlnUG5GuKAsQ8sVhJrIDULCqGIP8NQXeiCKYWew==
+
 ```
 
 ⚠️ **This secret comes from Supabase Dashboard → Settings → API → JWT Secret**
