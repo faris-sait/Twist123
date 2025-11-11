@@ -12,7 +12,7 @@ The application code is **100% complete** and the server is **running**. However
 
 1. **Open Supabase Dashboard**
    - Go to: https://supabase.com/dashboard
-   - Select your project: `gvtatgpxlxulrppilhoe`
+   - Select your project: 
 
 2. **Navigate to SQL Editor**
    - Click **SQL Editor** in the left sidebar
