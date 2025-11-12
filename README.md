@@ -52,17 +52,6 @@ yarn install
 
 The `.env` file is already configured with your credentials:
 
-```env
-# Clerk
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
-CLERK_SECRET_KEY=sk_test_...
-
-# Supabase
-NEXT_PUBLIC_SUPABASE_URL=https://gvtatgpxlxulrppilhoe.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
-SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIs...
-SUPABASE_JWT_SECRET=FN6/hxDyEo2A55TR...
-```
 
 #### 3. Run Database Schema
 
