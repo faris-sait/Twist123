@@ -112,13 +112,6 @@ export function LandingPage() {
           </Card>
         </div>
       </div>
-
-      {/* Footer */}
-      <footer className="border-t border-white/10 mt-20 py-8">
-        <div className="container mx-auto px-4 text-center text-sm text-gray-400">
-          <p>© 2025 TWIST. Built with Next.js, Clerk, and Supabase.</p>
-        </div>
-      </footer>
     </div>
   );
 }

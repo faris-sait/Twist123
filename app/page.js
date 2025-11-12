@@ -429,18 +429,6 @@ export default function App() {
         )}
       </main>
 
-      {/* Footer */}
-      <footer className="border-t mt-20 py-8 bg-white/50 backdrop-blur-sm">
-        <div className="container mx-auto px-4 text-center space-y-2">
-          <p className="text-sm text-muted-foreground">
-            © 2025 TWIST. Built with Next.js, Clerk, and Supabase.
-          </p>
-          <p className="text-xs text-muted-foreground">
-            A modern social media platform where connections matter.
-          </p>
-        </div>
-      </footer>
-
       {/* Edit Profile Dialog */}
       {profile && (
         <EditProfileDialog

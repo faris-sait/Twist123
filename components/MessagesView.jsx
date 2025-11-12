@@ -67,6 +67,13 @@ export default function MessagesView() {
     }
   };
 
+  const handleConversationDeleted = () => {
+    // Close the thread view
+    setSelectedConversation(null);
+    // Refresh the conversation list
+    fetchConversations();
+  };
+
   const formatMessageTime = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -90,7 +97,7 @@ export default function MessagesView() {
   const totalUnread = conversations.reduce((sum, conv) => sum + (conv.unreadCount || 0), 0);
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] glass">
+    <div className="fixed inset-0 top-16 flex glass">
       {/* Conversations List Sidebar */}
       <div className="w-full md:w-96 border-r border-white/10 flex flex-col glass">
         {/* Header */}
@@ -206,6 +213,7 @@ export default function MessagesView() {
             conversation={selectedConversation}
             onBack={() => setSelectedConversation(null)}
             onMessageSent={fetchConversations}
+            onConversationDeleted={handleConversationDeleted}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-400">

@@ -6,16 +6,24 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Send, MoreVertical } from 'lucide-react';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import { ArrowLeft, Send, MoreVertical, Trash2 } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 
-export default function MessageThread({ conversation, onBack, onMessageSent }) {
+export default function MessageThread({ conversation, onBack, onMessageSent, onConversationDeleted }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [currentUserProfileId, setCurrentUserProfileId] = useState(null);
+  const [hoveredMessageId, setHoveredMessageId] = useState(null);
   const scrollRef = useRef(null);
+  const messagesEndRef = useRef(null);
   const { user } = useUser();
 
   useEffect(() => {
@@ -94,10 +102,52 @@ export default function MessageThread({ conversation, onBack, onMessageSent }) {
     }
   };
 
-  const scrollToBottom = () => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+  const handleDeleteMessage = async (messageId) => {
+    if (!confirm('Are you sure you want to delete this message?')) return;
+
+    try {
+      const response = await fetch(`/api/conversations/${conversation.id}/messages/${messageId}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        setMessages(messages.filter(msg => msg.id !== messageId));
+      } else {
+        console.error('Failed to delete message');
+      }
+    } catch (error) {
+      console.error('Error deleting message:', error);
     }
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!confirm('Are you sure you want to delete this entire conversation? This action cannot be undone.')) return;
+
+    try {
+      const response = await fetch(`/api/conversations/${conversation.id}`, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        // Call the callback to refresh conversation list and go back
+        if (onConversationDeleted) {
+          onConversationDeleted();
+        } else {
+          // Fallback: just go back
+          onBack();
+        }
+      } else {
+        console.error('Failed to delete conversation');
+        alert('Failed to delete conversation');
+      }
+    } catch (error) {
+      console.error('Error deleting conversation:', error);
+      alert('Error deleting conversation');
+    }
+  };
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
   const formatMessageTime = (dateString) => {
@@ -175,9 +225,22 @@ export default function MessageThread({ conversation, onBack, onMessageSent }) {
           </p>
         </div>
         
-        <Button variant="ghost" size="icon" className="glass-hover">
-          <MoreVertical className="h-5 w-5 text-gray-400" />
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon" className="glass-hover">
+              <MoreVertical className="h-5 w-5 text-gray-400" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="glass border-white/10 text-white">
+            <DropdownMenuItem 
+              className="text-red-400 focus:text-red-400 focus:bg-red-500/10 cursor-pointer"
+              onClick={handleDeleteConversation}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Conversation
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {/* Messages */}
@@ -216,7 +279,9 @@ export default function MessageThread({ conversation, onBack, onMessageSent }) {
                     return (
                       <div
                         key={message.id}
-                        className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : ''}`}
+                        className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : ''} group`}
+                        onMouseEnter={() => setHoveredMessageId(message.id)}
+                        onMouseLeave={() => setHoveredMessageId(null)}
                       >
                         {showAvatar ? (
                           <Avatar className="h-6 w-6 flex-shrink-0 ring-1 ring-purple-500/30">
@@ -232,16 +297,28 @@ export default function MessageThread({ conversation, onBack, onMessageSent }) {
                         )}
                         
                         <div className={`flex flex-col max-w-[70%] ${isOwn ? 'items-end' : 'items-start'}`}>
-                          <div
-                            className={`rounded-2xl px-4 py-2 backdrop-blur-xl ${
-                              isOwn
-                                ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white neon-glow'
-                                : 'glass border border-white/10 text-white'
-                            }`}
-                          >
-                            <p className="text-sm whitespace-pre-wrap break-words">
-                              {message.content}
-                            </p>
+                          <div className="relative">
+                            <div
+                              className={`rounded-2xl px-4 py-2 backdrop-blur-xl ${
+                                isOwn
+                                  ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white neon-glow'
+                                  : 'glass border border-white/10 text-white'
+                              }`}
+                            >
+                              <p className="text-sm whitespace-pre-wrap break-words">
+                                {message.content}
+                              </p>
+                            </div>
+                            {isOwn && hoveredMessageId === message.id && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="absolute -right-10 top-1/2 -translate-y-1/2 h-7 w-7 glass-hover opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={() => handleDeleteMessage(message.id)}
+                              >
+                                <Trash2 className="h-4 w-4 text-red-400" />
+                              </Button>
+                            )}
                           </div>
                           <span className="text-xs text-gray-400 mt-1 px-2">
                             {formatMessageTime(message.created_at)}
@@ -255,6 +332,7 @@ export default function MessageThread({ conversation, onBack, onMessageSent }) {
             ))}
           </div>
         )}
+        <div ref={messagesEndRef} />
       </ScrollArea>
 
       {/* Message Input */}

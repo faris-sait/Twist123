@@ -45,6 +45,7 @@ ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 -- Drop existing policies if they exist
 DROP POLICY IF EXISTS "Users can view their conversations" ON conversations;
 DROP POLICY IF EXISTS "Users can create conversations" ON conversations;
+DROP POLICY IF EXISTS "Users can delete their conversations" ON conversations;
 DROP POLICY IF EXISTS "Users can view messages in their conversations" ON messages;
 DROP POLICY IF EXISTS "Users can send messages to their conversations" ON messages;
 DROP POLICY IF EXISTS "Users can update their own messages" ON messages;
@@ -66,6 +67,18 @@ CREATE POLICY "Users can view their conversations"
 CREATE POLICY "Users can create conversations"
   ON conversations FOR INSERT
   WITH CHECK (true);
+
+CREATE POLICY "Users can delete their conversations"
+  ON conversations FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1 
+      FROM conversation_participants cp
+      INNER JOIN profiles p ON cp.profile_id = p.id
+      WHERE cp.conversation_id = conversations.id
+      AND p.clerk_user_id = (auth.jwt() ->> 'sub')::text
+    )
+  );
 
 -- No RLS policies needed for conversation_participants since RLS is disabled
 -- Security is enforced through the conversations and messages policies
