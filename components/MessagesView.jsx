@@ -10,7 +10,7 @@ import { Search, Edit, MessageSquare } from 'lucide-react';
 import MessageThread from './MessageThread';
 import NewMessageDialog from './NewMessageDialog';
 
-export default function MessagesView() {
+export default function MessagesView({ onViewProfile }) {
   const [conversations, setConversations] = useState([]);
   const [selectedConversation, setSelectedConversation] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -214,6 +214,7 @@ export default function MessagesView() {
             onBack={() => setSelectedConversation(null)}
             onMessageSent={fetchConversations}
             onConversationDeleted={handleConversationDeleted}
+            onViewProfile={onViewProfile}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center text-gray-400">

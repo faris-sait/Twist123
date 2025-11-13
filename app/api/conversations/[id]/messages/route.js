@@ -56,13 +56,6 @@ export async function GET(request, { params }) {
 
     if (error) throw error;
 
-    // Decrypt all messages
-    const decryptedMessages = messages?.map(msg => ({
-      ...msg,
-      content: decrypt(msg.encrypted_content),
-      encrypted_content: undefined // Remove encrypted field from response
-    })) || [];
-
     // Mark all unread messages from other users as read
     const unreadMessageIds = messages
       ?.filter(msg => !msg.is_read && msg.sender_id !== profile.id)
@@ -74,6 +67,14 @@ export async function GET(request, { params }) {
         .update({ is_read: true })
         .in('id', unreadMessageIds);
     }
+
+    // Decrypt all messages and update is_read status
+    const decryptedMessages = messages?.map(msg => ({
+      ...msg,
+      content: decrypt(msg.encrypted_content),
+      encrypted_content: undefined, // Remove encrypted field from response
+      is_read: unreadMessageIds.includes(msg.id) ? true : msg.is_read // Update read status
+    })) || [];
 
     // Update last_read_at for this user
     await supabase

@@ -15,7 +15,7 @@ import {
 import { toast } from 'sonner';
 import CommentsList from './CommentsList';
 
-export function PostCard({ post, currentUserId, onDelete }) {
+export function PostCard({ post, currentUserId, onDelete, onViewProfile }) {
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(0);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -147,7 +147,10 @@ export function PostCard({ post, currentUserId, onDelete }) {
       <CardHeader>
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
-            <Avatar className="w-12 h-12 ring-2 ring-blue-500/50 neon-glow">
+            <Avatar 
+              className="w-12 h-12 ring-2 ring-blue-500/50 neon-glow cursor-pointer"
+              onClick={() => onViewProfile && onViewProfile(post.author_id)}
+            >
               <AvatarImage src={post.author?.avatar_url} alt={post.author?.username} />
               <AvatarFallback className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white font-semibold">
                 {post.author?.username?.[0]?.toUpperCase() || 'U'}
@@ -155,7 +158,10 @@ export function PostCard({ post, currentUserId, onDelete }) {
             </Avatar>
             <div>
               <div className="flex items-center space-x-2">
-                <span className="font-semibold text-base hover:text-blue-400 cursor-pointer transition-colors">
+                <span 
+                  className="font-semibold text-base hover:text-blue-400 cursor-pointer transition-colors"
+                  onClick={() => onViewProfile && onViewProfile(post.author_id)}
+                >
                   {post.author?.display_name || post.author?.username}
                 </span>
                 {post.author?.is_verified && (
@@ -165,7 +171,12 @@ export function PostCard({ post, currentUserId, onDelete }) {
                   <Badge variant="secondary" className="text-xs">Private</Badge>
                 )}
               </div>
-              <span className="text-sm text-muted-foreground">@{post.author?.username}</span>
+              <span 
+                className="text-sm text-muted-foreground hover:text-blue-400 cursor-pointer transition-colors"
+                onClick={() => onViewProfile && onViewProfile(post.author_id)}
+              >
+                @{post.author?.username}
+              </span>
             </div>
           </div>
           <div className="flex items-center space-x-2">
