@@ -12,7 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, Send, MoreVertical, Trash2 } from 'lucide-react';
+import { ArrowLeft, Send, MoreVertical, Trash2, Check, CheckCheck } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 
 export default function MessageThread({ conversation, onBack, onMessageSent, onConversationDeleted }) {
@@ -320,9 +320,20 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
                               </Button>
                             )}
                           </div>
-                          <span className="text-xs text-gray-400 mt-1 px-2">
-                            {formatMessageTime(message.created_at)}
-                          </span>
+                          <div className={`flex items-center gap-1 mt-1 px-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
+                            <span className="text-xs text-gray-400">
+                              {formatMessageTime(message.created_at)}
+                            </span>
+                            {isOwn && (
+                              <span className="text-xs text-gray-400">
+                                {message.is_read ? (
+                                  <CheckCheck className="h-3 w-3 text-blue-400" />
+                                ) : (
+                                  <Check className="h-3 w-3 text-gray-400" />
+                                )}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );

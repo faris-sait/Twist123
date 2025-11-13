@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClerkSupabaseClient, getClerkUserId } from '@/lib/supabase/clerk-client';
+import { encrypt, decrypt } from '@/lib/encryption';
 
 // GET /api/conversations/[id]/messages - Get all messages in a conversation
 export async function GET(request, { params }) {
@@ -39,7 +40,7 @@ export async function GET(request, { params }) {
       .from('messages')
       .select(`
         id,
-        content,
+        encrypted_content,
         created_at,
         is_read,
         sender_id,
@@ -55,6 +56,25 @@ export async function GET(request, { params }) {
 
     if (error) throw error;
 
+    // Decrypt all messages
+    const decryptedMessages = messages?.map(msg => ({
+      ...msg,
+      content: decrypt(msg.encrypted_content),
+      encrypted_content: undefined // Remove encrypted field from response
+    })) || [];
+
+    // Mark all unread messages from other users as read
+    const unreadMessageIds = messages
+      ?.filter(msg => !msg.is_read && msg.sender_id !== profile.id)
+      .map(msg => msg.id) || [];
+
+    if (unreadMessageIds.length > 0) {
+      await supabase
+        .from('messages')
+        .update({ is_read: true })
+        .in('id', unreadMessageIds);
+    }
+
     // Update last_read_at for this user
     await supabase
       .from('conversation_participants')
@@ -62,7 +82,7 @@ export async function GET(request, { params }) {
       .eq('conversation_id', id)
       .eq('profile_id', profile.id);
 
-    return NextResponse.json({ messages: messages || [] }, { status: 200 });
+    return NextResponse.json({ messages: decryptedMessages }, { status: 200 });
   } catch (error) {
     console.error('Error fetching messages:', error);
     return NextResponse.json(
@@ -114,17 +134,20 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Create message
+    // Encrypt the message content before storing
+    const encryptedContent = encrypt(content.trim());
+
+    // Create message with encrypted content
     const { data: message, error } = await supabase
       .from('messages')
       .insert([{
         conversation_id: id,
         sender_id: profile.id,
-        content: content.trim(),
+        encrypted_content: encryptedContent,
       }])
       .select(`
         id,
-        content,
+        encrypted_content,
         created_at,
         is_read,
         sender_id,
@@ -139,7 +162,14 @@ export async function POST(request, { params }) {
 
     if (error) throw error;
 
-    return NextResponse.json({ message }, { status: 201 });
+    // Decrypt the message before returning to client
+    const decryptedMessage = {
+      ...message,
+      content: decrypt(message.encrypted_content),
+      encrypted_content: undefined // Remove encrypted field from response
+    };
+
+    return NextResponse.json({ message: decryptedMessage }, { status: 201 });
   } catch (error) {
     console.error('Error sending message:', error);
     return NextResponse.json(
