@@ -23,11 +23,14 @@ export function EditProfileDialog({ profile, open, onOpenChange, onProfileUpdate
     display_name: profile?.display_name || '',
     bio: profile?.bio || '',
     avatar_url: profile?.avatar_url || '',
+    cover_image_url: profile?.cover_image_url || '',
     website_url: profile?.website_url || '',
     location: profile?.location || '',
   });
   const [avatarFile, setAvatarFile] = useState(null);
   const [avatarPreview, setAvatarPreview] = useState(profile?.avatar_url || '');
+  const [coverFile, setCoverFile] = useState(null);
+  const [coverPreview, setCoverPreview] = useState(profile?.cover_image_url || '');
   const [uploading, setUploading] = useState(false);
 
   const handleAvatarChange = (e) => {
@@ -56,6 +59,32 @@ export function EditProfileDialog({ profile, open, onOpenChange, onProfileUpdate
     }
   };
 
+  const handleCoverChange = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image must be less than 5MB');
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please upload an image file');
+        return;
+      }
+
+      setCoverFile(file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCoverPreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const uploadAvatar = async () => {
     if (!avatarFile) return formData.avatar_url;
 
@@ -76,6 +105,26 @@ export function EditProfileDialog({ profile, open, onOpenChange, onProfileUpdate
     }
   };
 
+  const uploadCover = async () => {
+    if (!coverFile) return formData.cover_image_url;
+
+    try {
+      // Convert file to base64
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(coverFile);
+      });
+
+      return base64;
+    } catch (error) {
+      console.error('Error uploading cover:', error);
+      toast.error('Failed to upload cover image');
+      return formData.cover_image_url;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setUploading(true);
@@ -87,6 +136,12 @@ export function EditProfileDialog({ profile, open, onOpenChange, onProfileUpdate
         avatar_url = await uploadAvatar();
       }
 
+      // Upload cover image if changed
+      let cover_image_url = formData.cover_image_url;
+      if (coverFile) {
+        cover_image_url = await uploadCover();
+      }
+
       // Update profile
       const res = await fetch('/api/profile', {
         method: 'PATCH',
@@ -94,6 +149,7 @@ export function EditProfileDialog({ profile, open, onOpenChange, onProfileUpdate
         body: JSON.stringify({
           ...formData,
           avatar_url,
+          cover_image_url,
         }),
       });
 
@@ -125,6 +181,41 @@ export function EditProfileDialog({ profile, open, onOpenChange, onProfileUpdate
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Cover Image Upload */}
+          <div className="space-y-2">
+            <Label>Cover Image</Label>
+            <div className="relative h-32 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 rounded-lg overflow-hidden">
+              {coverPreview && (
+                <img
+                  src={coverPreview}
+                  alt="Cover preview"
+                  className="w-full h-full object-cover"
+                />
+              )}
+              <label
+                htmlFor="cover-upload"
+                className="absolute inset-0 flex items-center justify-center bg-black/40 hover:bg-black/50 transition-colors cursor-pointer group"
+              >
+                <div className="text-center text-white">
+                  <Camera className="w-8 h-8 mx-auto mb-2 group-hover:scale-110 transition-transform" />
+                  <p className="text-sm font-medium">
+                    {coverPreview ? 'Change Cover' : 'Upload Cover'}
+                  </p>
+                </div>
+                <input
+                  id="cover-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCoverChange}
+                  className="hidden"
+                />
+              </label>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Recommended: 1500x500px (max 5MB)
+            </p>
+          </div>
+
           {/* Avatar Upload */}
           <div className="flex flex-col items-center space-y-4">
             <div className="relative">

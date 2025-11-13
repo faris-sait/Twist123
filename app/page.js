@@ -24,6 +24,7 @@ import { FriendRequests } from '@/components/FriendRequests';
 import { EditProfileDialog } from '@/components/EditProfileDialog';
 import NotificationsList from '@/components/NotificationsList';
 import MessagesView from '@/components/MessagesView';
+import { UserProfileView } from '@/components/UserProfileView';
 
 export default function App() {
   const { isSignedIn, isLoaded } = useAuth();
@@ -37,6 +38,8 @@ export default function App() {
   const [notificationsCount, setNotificationsCount] = useState(0);
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [showEditProfile, setShowEditProfile] = useState(false);
+  const [viewingUserId, setViewingUserId] = useState(null);
+  const [friendsCount, setFriendsCount] = useState(0);
 
   // Profile creation form
   const [profileForm, setProfileForm] = useState({
@@ -47,16 +50,29 @@ export default function App() {
 
   useEffect(() => {
     if (isSignedIn) {
-      // Fetch profile first (most important)
-      fetchProfile();
+      // Fetch all data in parallel and wait for critical data before showing UI
+      const loadInitialData = async () => {
+        try {
+          // Wait for profile and posts (critical for home page)
+          await Promise.all([
+            fetchProfile(),
+            fetchPosts()
+          ]);
+          
+          // Fetch other data in background (non-blocking)
+          fetchFriendRequestsCount();
+          fetchNotificationsCount();
+          fetchUnreadMessagesCount();
+          fetchFriendsCount();
+        } catch (error) {
+          console.error('Error loading initial data:', error);
+        } finally {
+          // Always turn off loading, even if there's an error
+          setLoading(false);
+        }
+      };
       
-      // Fetch other data in parallel (don't wait for each other)
-      Promise.all([
-        fetchPosts(),
-        fetchFriendRequestsCount(),
-        fetchNotificationsCount(),
-        fetchUnreadMessagesCount()
-      ]);
+      loadInitialData();
     } else {
       setLoading(false);
     }
@@ -105,10 +121,27 @@ export default function App() {
     }
   };
 
+  const fetchFriendsCount = async () => {
+    try {
+      const res = await fetch('/api/friends');
+      const data = await res.json();
+      if (res.ok) {
+        setFriendsCount(data.friends?.length || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching friends count:', error);
+    }
+  };
+
   const fetchProfile = async () => {
     try {
       console.log('Fetching profile...');
       const res = await fetch('/api/profile');
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
       const data = await res.json();
       console.log('Profile API response:', data);
       console.log('Profile data:', data.profile);
@@ -124,19 +157,25 @@ export default function App() {
     } catch (error) {
       console.error('Error fetching profile:', error);
       toast.error('Failed to fetch profile');
-    } finally {
-      console.log('Setting loading to false');
-      setLoading(false);
+      // Don't block the app, just show create profile screen
+      setShowCreateProfile(true);
     }
   };
 
   const fetchPosts = async () => {
     try {
       const res = await fetch('/api/posts?limit=20');
+      
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      
       const data = await res.json();
       setPosts(data.posts || []);
     } catch (error) {
       console.error('Error fetching posts:', error);
+      // Set empty array on error to avoid showing loading forever
+      setPosts([]);
     }
   };
 
@@ -177,6 +216,8 @@ export default function App() {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
+    // Close profile view when changing tabs
+    setViewingUserId(null);
     // Refresh posts when home tab is clicked
     if (tab === 'home') {
       fetchPosts();
@@ -213,6 +254,8 @@ export default function App() {
       });
 
       if (res.ok) {
+        // Close profile view if open
+        setViewingUserId(null);
         // Switch to messages tab
         setActiveTab('messages');
       }
@@ -221,9 +264,22 @@ export default function App() {
     }
   };
 
+  const handleViewProfile = (userId) => {
+    // Don't allow viewing own profile this way - use the profile tab instead
+    if (userId === profile?.id) {
+      setActiveTab('profile');
+      return;
+    }
+    setViewingUserId(userId);
+  };
+
+  const handleBackFromProfile = () => {
+    setViewingUserId(null);
+  };
+
   // Loading state
   if (!isLoaded || loading) {
-    return <LoadingSpinner message="Loading TWIST..." />;
+    return <LoadingSpinner message="Loading TWIST..." fullScreen={true} />;
   }
 
   // Not signed in - show landing page
@@ -308,8 +364,18 @@ export default function App() {
 
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8 max-w-4xl">
+        {/* User Profile View - Shows when clicking on a user */}
+        {viewingUserId && (
+          <UserProfileView
+            userId={viewingUserId}
+            currentUserId={profile?.id}
+            onBack={handleBackFromProfile}
+            onMessageUser={handleMessageUser}
+          />
+        )}
+
         {/* Home Tab - Posts Feed Only */}
-        {activeTab === 'home' && (
+        {!viewingUserId && activeTab === 'home' && (
           <div className="space-y-6">
             {/* Posts Feed */}
             {posts.length === 0 ? (
@@ -321,6 +387,7 @@ export default function App() {
                   post={post}
                   currentUserId={profile?.id}
                   onDelete={handlePostDeleted}
+                  onViewProfile={handleViewProfile}
                 />
               ))
             )}
@@ -328,34 +395,35 @@ export default function App() {
         )}
 
         {/* Create Post Tab */}
-        {activeTab === 'create' && (
+        {!viewingUserId && activeTab === 'create' && (
           <div className="space-y-6">
             <CreatePostForm profile={profile} onPostCreated={handlePostCreated} />
           </div>
         )}
 
         {/* Search Users Tab */}
-        {activeTab === 'search' && <UserSearch onMessageUser={handleMessageUser} />}
+        {!viewingUserId && activeTab === 'search' && <UserSearch onMessageUser={handleMessageUser} />}
 
         {/* Messages Tab */}
-        {activeTab === 'messages' && <MessagesView />}
+        {!viewingUserId && activeTab === 'messages' && <MessagesView onViewProfile={handleViewProfile} />}
 
         {/* Friends Tab */}
-        {activeTab === 'friends' && <FriendsList />}
+        {!viewingUserId && activeTab === 'friends' && <FriendsList />}
 
         {/* Friend Requests Tab */}
-        {activeTab === 'requests' && (
+        {!viewingUserId && activeTab === 'requests' && (
           <FriendRequests onRequestHandled={handleRequestHandled} />
         )}
 
         {/* Profile Tab */}
-        {activeTab === 'profile' && (
+        {!viewingUserId && activeTab === 'profile' && (
           <div className="space-y-6">
             {!loading && profile ? (
               <>
                 <ProfileHeader
                   profile={profile}
                   postsCount={posts.filter(p => p.author_id === profile.id).length}
+                  friendsCount={friendsCount}
                   isOwnProfile={true}
                   onEditProfile={() => setShowEditProfile(true)}
                 />
@@ -374,6 +442,7 @@ export default function App() {
                           post={post}
                           currentUserId={profile?.id}
                           onDelete={handlePostDeleted}
+                          onViewProfile={handleViewProfile}
                         />
                       ))
                   )}
@@ -400,7 +469,7 @@ export default function App() {
         )}
 
         {/* Notifications Tab */}
-        {activeTab === 'notifications' && (
+        {!viewingUserId && activeTab === 'notifications' && (
           <NotificationsList
             onNotificationClick={(notification) => {
               fetchNotificationsCount(); // Refresh count

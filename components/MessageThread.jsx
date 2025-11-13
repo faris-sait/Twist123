@@ -15,7 +15,7 @@ import {
 import { ArrowLeft, Send, MoreVertical, Trash2, Check, CheckCheck } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 
-export default function MessageThread({ conversation, onBack, onMessageSent, onConversationDeleted }) {
+export default function MessageThread({ conversation, onBack, onMessageSent, onConversationDeleted, onViewProfile }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -201,7 +201,10 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
           <ArrowLeft className="h-5 w-5 text-purple-400" />
         </Button>
         
-        <Avatar className="h-10 w-10 ring-2 ring-purple-500/30 neon-glow">
+        <Avatar 
+          className="h-10 w-10 ring-2 ring-purple-500/30 neon-glow cursor-pointer hover:ring-purple-400/50 transition-all"
+          onClick={() => onViewProfile && onViewProfile(conversation.otherParticipant?.id)}
+        >
           <AvatarImage src={conversation.otherParticipant?.avatar_url} />
           <AvatarFallback className="bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white font-semibold">
             {conversation.otherParticipant?.display_name?.[0] ||
@@ -210,9 +213,9 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
           </AvatarFallback>
         </Avatar>
         
-        <div className="flex-1">
+        <div className="flex-1 cursor-pointer" onClick={() => onViewProfile && onViewProfile(conversation.otherParticipant?.id)}>
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-white">
+            <h3 className="font-semibold text-white hover:text-purple-400 transition-colors">
               {conversation.otherParticipant?.display_name ||
                 conversation.otherParticipant?.username}
             </h3>
@@ -220,7 +223,7 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
               <Badge variant="secondary" className="h-4 text-xs px-1 bg-blue-500/20 text-blue-400 border-blue-500/30">✓</Badge>
             )}
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-gray-400 hover:text-purple-400 transition-colors">
             @{conversation.otherParticipant?.username}
           </p>
         </div>
