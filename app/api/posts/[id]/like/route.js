@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClerkSupabaseClient, getClerkUserId } from '@/lib/supabase/clerk-client';
 import { createServiceSupabaseClient } from '@/lib/supabase/service-client';
+import { invalidateCache, CACHE_KEYS } from '@/lib/redis/client';
 
 // POST /api/posts/[id]/like - Toggle like on a post
 export async function POST(request, { params }) {
@@ -97,6 +98,9 @@ export async function POST(request, { params }) {
     if (countError) {
       throw countError;
     }
+
+    // Invalidate like cache for this post
+    await invalidateCache(CACHE_KEYS.postLikes(postId));
 
     return NextResponse.json({
       isLiked,

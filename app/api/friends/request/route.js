@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClerkSupabaseClient, getClerkUserId } from '@/lib/supabase/clerk-client';
 import { createServiceSupabaseClient } from '@/lib/supabase/service-client';
+import { invalidateCache } from '@/lib/redis/client';
 
 // POST /api/friends/request - Send friend request
 export async function POST(request) {
@@ -83,6 +84,9 @@ export async function POST(request) {
       console.error('Error creating friend request notification:', notifError);
       // Don't fail the request if notification fails
     }
+
+    // Invalidate notifications cache for addressee
+    await invalidateCache(`notifications:${addressee_id}:*`);
 
     return NextResponse.json({ friendship: data }, { status: 201 });
   } catch (error) {
