@@ -72,8 +72,8 @@ export async function GET(request, { params }) {
     const decryptedMessages = messages?.map(msg => ({
       ...msg,
       content: decrypt(msg.encrypted_content),
-      encrypted_content: undefined, // Remove encrypted field from response
-      is_read: unreadMessageIds.includes(msg.id) ? true : msg.is_read // Update read status
+      encrypted_content: undefined,
+      is_read: unreadMessageIds.includes(msg.id) ? true : msg.is_read
     })) || [];
 
     // Update last_read_at for this user

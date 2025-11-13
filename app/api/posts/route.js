@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClerkSupabaseClient, getClerkUserId } from '@/lib/supabase/clerk-client';
 import { createServiceSupabaseClient } from '@/lib/supabase/service-client';
+import { getCachedOrFetch, CACHE_KEYS, CACHE_TTL } from '@/lib/redis/client';
 
 // GET /api/posts - Get posts feed (all public posts)
 export async function GET(request) {
@@ -10,27 +11,32 @@ export async function GET(request) {
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Fetch posts with author information
-    const { data, error } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        author:profiles!posts_author_id_fkey (
-          id,
-          username,
-          display_name,
-          avatar_url,
-          is_verified
-        )
-      `)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+    // Fetch posts with Redis caching
+    const posts = await getCachedOrFetch(
+      CACHE_KEYS.feed(limit, offset),
+      CACHE_TTL.FEED,
+      async () => {
+        const { data, error } = await supabase
+          .from('posts')
+          .select(`
+            *,
+            author:profiles!posts_author_id_fkey (
+              id,
+              username,
+              display_name,
+              avatar_url,
+              is_verified
+            )
+          `)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
 
-    if (error) {
-      throw error;
-    }
+        if (error) throw error;
+        return data || [];
+      }
+    );
 
-    return NextResponse.json({ posts: data || [] }, { status: 200 });
+    return NextResponse.json({ posts }, { status: 200 });
   } catch (error) {
     console.error('Error fetching posts:', error);
     return NextResponse.json(
