@@ -402,7 +402,7 @@ export default function App() {
         )}
 
         {/* Search Users Tab */}
-        {!viewingUserId && activeTab === 'search' && <UserSearch onMessageUser={handleMessageUser} />}
+        {!viewingUserId && activeTab === 'search' && <UserSearch onMessageUser={handleMessageUser} onViewProfile={handleViewProfile} />}
 
         {/* Messages Tab */}
         {!viewingUserId && activeTab === 'messages' && <MessagesView onViewProfile={handleViewProfile} />}

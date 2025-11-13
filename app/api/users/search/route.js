@@ -9,9 +9,9 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
 
-    if (!query || query.length < 2) {
+    if (!query || query.length < 1) {
       return NextResponse.json(
-        { error: 'Search query must be at least 2 characters' },
+        { error: 'Search query must be at least 1 character' },
         { status: 400 }
       );
     }
@@ -57,11 +57,19 @@ export async function GET(request) {
           isRequester = friendship.requester_id === currentProfile?.id;
         }
 
+        // Get friend count for this user
+        const { count: friendsCount } = await supabase
+          .from('friendships')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'accepted')
+          .or(`requester_id.eq.${user.id},addressee_id.eq.${user.id}`);
+
         return {
           ...user,
           friendship_status: friendshipStatus,
           friendship_id: friendshipId,
           is_requester: isRequester,
+          friends_count: friendsCount || 0,
         };
       })
     );
