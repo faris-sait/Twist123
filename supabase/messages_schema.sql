@@ -19,11 +19,13 @@ CREATE TABLE IF NOT EXISTS conversation_participants (
 );
 
 -- Create messages table
+-- NOTE: encrypted_content field stores AES-256 encrypted messages in format: iv:encryptedData
+-- Both IV and encrypted data are hex-encoded strings
 CREATE TABLE IF NOT EXISTS messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
   sender_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  content TEXT NOT NULL,
+  encrypted_content TEXT NOT NULL, -- Stores encrypted content (iv:encryptedData format)
   is_read BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -142,3 +144,15 @@ CREATE TRIGGER trigger_update_conversation_timestamp
   AFTER INSERT ON messages
   FOR EACH ROW
   EXECUTE FUNCTION update_conversation_timestamp();
+
+-- Migration: Rename content column to encrypted_content (if not already renamed)
+-- Run this if you're updating an existing database
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_name = 'messages' AND column_name = 'content'
+  ) THEN
+    ALTER TABLE messages RENAME COLUMN content TO encrypted_content;
+  END IF;
+END $$;

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClerkSupabaseClient, getClerkUserId } from '@/lib/supabase/clerk-client';
 import { createServiceSupabaseClient } from '@/lib/supabase/service-client';
+import { decrypt } from '@/lib/encryption';
 
 // GET /api/conversations - Get all conversations for current user
 export async function GET() {
@@ -63,7 +64,7 @@ export async function GET() {
       
       supabase
         .from('messages')
-        .select('conversation_id, content, created_at, sender_id')
+        .select('conversation_id, encrypted_content, created_at, sender_id')
         .in('conversation_id', conversationIds)
         .order('created_at', { ascending: false })
     ]);
@@ -88,6 +89,17 @@ export async function GET() {
       const participation = participations.find(p => p.conversation_id === conversation.id);
       const messages = messagesByConversation[conversation.id] || [];
       const latestMessage = messages[0] || null;
+      
+      // Decrypt latest message content if it exists
+      if (latestMessage && latestMessage.encrypted_content) {
+        try {
+          latestMessage.content = decrypt(latestMessage.encrypted_content);
+          delete latestMessage.encrypted_content; // Remove encrypted field
+        } catch (error) {
+          console.error('Error decrypting message preview:', error);
+          latestMessage.content = '[Unable to decrypt message]';
+        }
+      }
       
       // Count unread messages
       const unreadCount = messages.filter(m => 
