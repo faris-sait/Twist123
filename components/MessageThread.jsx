@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -12,8 +13,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { ArrowLeft, Send, MoreVertical, Trash2, Check, CheckCheck } from 'lucide-react';
+import { 
+  ArrowLeft, 
+  Send, 
+  MoreVertical, 
+  Trash2, 
+  Check, 
+  CheckCheck,
+  Image as ImageIcon,
+  Smile,
+  X
+} from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
+
+// Dynamically import emoji picker to avoid SSR issues
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 export default function MessageThread({ conversation, onBack, onMessageSent, onConversationDeleted, onViewProfile }) {
   const [messages, setMessages] = useState([]);
@@ -22,9 +36,15 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
   const [isSending, setIsSending] = useState(false);
   const [currentUserProfileId, setCurrentUserProfileId] = useState(null);
   const [hoveredMessageId, setHoveredMessageId] = useState(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const { user } = useUser();
+  const shouldAutoScrollRef = useRef(true); // Only scroll on initial load
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     fetchUserProfile();
@@ -40,7 +60,11 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
   }, [conversation]);
 
   useEffect(() => {
-    scrollToBottom();
+    // Only auto-scroll on initial load
+    if (shouldAutoScrollRef.current && messages.length > 0) {
+      scrollToBottom();
+      shouldAutoScrollRef.current = false;
+    }
   }, [messages]);
 
   const fetchUserProfile = async () => {
@@ -75,31 +99,92 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!newMessage.trim() || isSending) return;
+    if ((!newMessage.trim() && !selectedImage) || isSending) return;
 
     const messageContent = newMessage.trim();
-    setNewMessage('');
+    let imageUrl = null;
+
     setIsSending(true);
 
     try {
+      // Convert image to base64 if selected
+      if (selectedImage) {
+        setIsUploadingImage(true);
+        imageUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(selectedImage);
+        });
+        setIsUploadingImage(false);
+      }
+
+      // Send message with or without image
       const response = await fetch(`/api/conversations/${conversation.id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: messageContent }),
+        body: JSON.stringify({ 
+          content: messageContent || '📷 Image',
+          image_url: imageUrl 
+        }),
       });
 
       const data = await response.json();
 
       if (response.ok) {
         setMessages([...messages, data.message]);
+        setNewMessage('');
+        setSelectedImage(null);
+        setImagePreview(null);
         if (onMessageSent) onMessageSent();
+        // Scroll to bottom after sending a message
+        setTimeout(() => scrollToBottom(), 100);
+      } else {
+        throw new Error(data.error || 'Failed to send message');
       }
     } catch (error) {
       console.error('Error sending message:', error);
       setNewMessage(messageContent); // Restore message on error
+      alert('Failed to send message. Please try again.');
     } finally {
       setIsSending(false);
+      setIsUploadingImage(false);
     }
+  };
+
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        alert('Image size must be less than 5MB');
+        return;
+      }
+      
+      if (!file.type.startsWith('image/')) {
+        alert('Please select an image file');
+        return;
+      }
+
+      setSelectedImage(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const handleEmojiClick = (emojiData) => {
+    setNewMessage(prev => prev + emojiData.emoji);
+    setShowEmojiPicker(false);
   };
 
   const handleDeleteMessage = async (messageId) => {
@@ -302,15 +387,27 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
                         <div className={`flex flex-col max-w-[70%] ${isOwn ? 'items-end' : 'items-start'}`}>
                           <div className="relative">
                             <div
-                              className={`rounded-2xl px-4 py-2 backdrop-blur-xl ${
+                              className={`rounded-2xl overflow-hidden backdrop-blur-xl ${
                                 isOwn
                                   ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white neon-glow'
                                   : 'glass border border-white/10 text-white'
                               }`}
                             >
-                              <p className="text-sm whitespace-pre-wrap break-words">
-                                {message.content}
-                              </p>
+                              {message.image_url && (
+                                <div className="relative">
+                                  <img 
+                                    src={message.image_url} 
+                                    alt="Shared image" 
+                                    className="max-w-full max-h-80 object-contain rounded-t-2xl cursor-pointer hover:opacity-90 transition-opacity"
+                                    onClick={() => window.open(message.image_url, '_blank')}
+                                  />
+                                </div>
+                              )}
+                              {message.content && message.content !== '📷 Image' && (
+                                <p className={`text-sm whitespace-pre-wrap break-words ${message.image_url ? 'px-4 py-2' : 'px-4 py-2'}`}>
+                                  {message.content}
+                                </p>
+                              )}
                             </div>
                             {isOwn && hoveredMessageId === message.id && (
                               <Button
@@ -351,22 +448,93 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
 
       {/* Message Input */}
       <div className="p-4 border-t border-white/10 backdrop-blur-xl">
+        {/* Image Preview */}
+        {imagePreview && (
+          <div className="mb-3 relative inline-block">
+            <img 
+              src={imagePreview} 
+              alt="Preview" 
+              className="max-h-32 rounded-lg border-2 border-purple-500/30"
+            />
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={handleRemoveImage}
+              className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-red-500 hover:bg-red-600 text-white"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+        
         <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+          
+          {/* Image Upload Button */}
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isSending || isUploadingImage}
+            className="glass-hover text-purple-400 hover:text-purple-300"
+          >
+            <ImageIcon className="h-5 w-5" />
+          </Button>
+          
+          {/* Emoji Picker Button */}
+          <div className="relative">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              disabled={isSending}
+              className="glass-hover text-yellow-400 hover:text-yellow-300"
+            >
+              <Smile className="h-5 w-5" />
+            </Button>
+            
+            {showEmojiPicker && (
+              <div className="absolute bottom-12 left-0 z-50">
+                <EmojiPicker
+                  onEmojiClick={handleEmojiClick}
+                  theme="dark"
+                  searchPlaceHolder="Search emoji..."
+                  width={320}
+                  height={400}
+                />
+              </div>
+            )}
+          </div>
+          
           <Input
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            placeholder="Type a message..."
+            placeholder={isUploadingImage ? "Uploading image..." : "Type a message..."}
             className="flex-1 glass border-white/20 focus:border-purple-500/50 focus:ring-2 focus:ring-purple-500/20 text-white placeholder:text-gray-400"
-            disabled={isSending}
+            disabled={isSending || isUploadingImage}
           />
           <Button
             type="submit"
             size="icon"
-            disabled={!newMessage.trim() || isSending}
+            disabled={(!newMessage.trim() && !selectedImage) || isSending || isUploadingImage}
             className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 neon-glow disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Send className="h-5 w-5" />
+            {isUploadingImage ? (
+              <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
           </Button>
         </form>
       </div>
