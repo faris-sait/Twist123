@@ -1,19 +1,16 @@
 'use client';
 
 import { useState, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PenSquare, Loader2, Image as ImageIcon, Smile, MapPin, X } from 'lucide-react';
 import { toast } from 'sonner';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 
-const EMOJI_LIST = ['😀', '😂', '😍', '🥰', '😎', '🤔', '😊', '👍', '❤️', '🎉', '🔥', '✨', '💯', '🙌', '👏', '🎊', '💪', '🌟', '⭐', '💖'];
+// Dynamically import emoji picker to avoid SSR issues
+const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
 
 export function CreatePostForm({ profile, onPostCreated }) {
   const [content, setContent] = useState('');
@@ -21,6 +18,7 @@ export function CreatePostForm({ profile, onPostCreated }) {
   const [images, setImages] = useState([]);
   const [location, setLocation] = useState('');
   const [showLocationInput, setShowLocationInput] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef(null);
 
   const handleImageUpload = (e) => {
@@ -54,8 +52,9 @@ export function CreatePostForm({ profile, onPostCreated }) {
     setImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const insertEmoji = (emoji) => {
-    setContent((prev) => prev + emoji);
+  const handleEmojiClick = (emojiData) => {
+    setContent((prev) => prev + emojiData.emoji);
+    setShowEmojiPicker(false);
   };
 
   const handleSubmit = async (e) => {
@@ -198,33 +197,30 @@ export function CreatePostForm({ profile, onPostCreated }) {
               Photo {images.length > 0 && `(${images.length}/4)`}
             </Button>
 
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="hover:text-indigo-600"
-                >
-                  <Smile className="w-4 h-4 mr-2" />
-                  Emoji
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-64 p-2">
-                <div className="grid grid-cols-5 gap-2">
-                  {EMOJI_LIST.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => insertEmoji(emoji)}
-                      className="text-2xl hover:bg-gray-100 rounded p-1 transition-colors"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
+            <div className="relative">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="hover:text-indigo-600"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+              >
+                <Smile className="w-4 h-4 mr-2" />
+                Emoji
+              </Button>
+              
+              {showEmojiPicker && (
+                <div className="absolute top-12 left-0 z-50">
+                  <EmojiPicker
+                    onEmojiClick={handleEmojiClick}
+                    theme="dark"
+                    searchPlaceHolder="Search emoji..."
+                    width={320}
+                    height={400}
+                  />
                 </div>
-              </PopoverContent>
-            </Popover>
+              )}
+            </div>
 
             <Button
               type="button"

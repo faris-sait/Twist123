@@ -41,6 +41,7 @@ export async function GET(request, { params }) {
       .select(`
         id,
         encrypted_content,
+        image_url,
         created_at,
         is_read,
         sender_id,
@@ -100,11 +101,11 @@ export async function POST(request, { params }) {
     const supabase = await createClerkSupabaseClient();
     const { id } = await params;
     const body = await request.json();
-    const { content } = body;
+    const { content, image_url } = body;
 
-    if (!content || !content.trim()) {
+    if ((!content || !content.trim()) && !image_url) {
       return NextResponse.json(
-        { error: 'Message content is required' },
+        { error: 'Message content or image is required' },
         { status: 400 }
       );
     }
@@ -135,20 +136,22 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Encrypt the message content before storing
-    const encryptedContent = encrypt(content.trim());
+    // Encrypt the message content before storing (if content exists)
+    const encryptedContent = content && content.trim() ? encrypt(content.trim()) : encrypt('📷 Image');
 
-    // Create message with encrypted content
+    // Create message with encrypted content and optional image
     const { data: message, error } = await supabase
       .from('messages')
       .insert([{
         conversation_id: id,
         sender_id: profile.id,
         encrypted_content: encryptedContent,
+        image_url: image_url || null,
       }])
       .select(`
         id,
         encrypted_content,
+        image_url,
         created_at,
         is_read,
         sender_id,

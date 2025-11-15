@@ -143,7 +143,7 @@ export function Navigation({ activeTab, onTabChange, friendRequestsCount = 0, no
   );
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b glass backdrop-blur-2xl shadow-lg border-white/10">
+    <header className="sticky top-0 z-50 w-full backdrop-blur-2xl bg-[rgba(26,26,26,0.6)]">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center space-x-2">
