@@ -63,19 +63,30 @@ export async function GET(request, { params }) {
       .map(msg => msg.id) || [];
 
     if (unreadMessageIds.length > 0) {
-      await supabase
+      console.log(`Marking ${unreadMessageIds.length} messages as read for user ${profile.id}`);
+      const { data: updateData, error: updateError } = await supabase
         .from('messages')
         .update({ is_read: true })
-        .in('id', unreadMessageIds);
+        .in('id', unreadMessageIds)
+        .select();
+      
+      if (updateError) {
+        console.error('Error updating read status:', updateError);
+      } else {
+        console.log('Successfully marked messages as read:', updateData);
+      }
     }
 
-    // Decrypt all messages and update is_read status
-    const decryptedMessages = messages?.map(msg => ({
-      ...msg,
-      content: decrypt(msg.encrypted_content),
-      encrypted_content: undefined,
-      is_read: unreadMessageIds.includes(msg.id) ? true : msg.is_read
-    })) || [];
+    // Decrypt all messages and update is_read status in response
+    const decryptedMessages = messages?.map(msg => {
+      const wasMarkedRead = unreadMessageIds.includes(msg.id);
+      return {
+        ...msg,
+        content: decrypt(msg.encrypted_content),
+        encrypted_content: undefined,
+        is_read: wasMarkedRead ? true : msg.is_read
+      };
+    }) || [];
 
     // Update last_read_at for this user
     await supabase
