@@ -4,9 +4,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle2, MapPin, Link2, Calendar, Settings } from 'lucide-react';
+import { CheckCircle2, MapPin, Link2, Calendar, Settings, RefreshCw } from 'lucide-react';
 
-export function ProfileHeader({ profile, postsCount = 0, friendsCount = 0, isOwnProfile = false, onEditProfile }) {
+export function ProfileHeader({ profile, postsCount = 0, friendsCount = 0, isOwnProfile = false, onEditProfile, onRefresh }) {
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
@@ -36,15 +36,26 @@ export function ProfileHeader({ profile, postsCount = 0, friendsCount = 0, isOwn
 
         {/* Edit Profile Button */}
         {isOwnProfile && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="absolute top-4 right-4 border-2"
-            onClick={onEditProfile}
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Edit Profile
-          </Button>
+          <div className="absolute top-4 right-4 flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-2"
+              onClick={onRefresh}
+              title="Refresh profile data"
+            >
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="border-2"
+              onClick={onEditProfile}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Edit Profile
+            </Button>
+          </div>
         )}
 
         <div className="pt-4 space-y-2">

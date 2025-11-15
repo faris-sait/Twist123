@@ -7,6 +7,7 @@ export async function GET() {
   try {
     const clerkUserId = await getClerkUserId();
     const supabase = await createClerkSupabaseClient();
+    const user = await currentUser();
 
     const { data, error } = await supabase
       .from('profiles')
@@ -19,36 +20,23 @@ export async function GET() {
         // No profile found - auto-create one
         console.log('No profile found, creating automatically...');
         
-        const user = await currentUser();
+        // Get username from Clerk
+        const clerkUsername = user?.username;
         
-        // Generate username from email or Clerk username
-        const email = user?.emailAddresses?.[0]?.emailAddress;
-        const baseUsername = email 
-          ? email.split('@')[0].toLowerCase().replace(/[^a-z0-9]/g, '')
-          : user?.username || `user${clerkUserId.slice(0, 8)}`;
-        
-        // Check if username exists and make it unique
-        let username = baseUsername;
-        let counter = 1;
-        while (true) {
-          const { data: existing } = await supabase
-            .from('profiles')
-            .select('username')
-            .eq('username', username)
-            .single();
-          
-          if (!existing) break;
-          username = `${baseUsername}${counter}`;
-          counter++;
+        if (!clerkUsername) {
+          return NextResponse.json(
+            { error: 'Username not found in Clerk account' },
+            { status: 400 }
+          );
         }
 
-        // Auto-create profile
+        // Auto-create profile with Clerk username
         const { data: newProfile, error: createError } = await supabase
           .from('profiles')
           .insert([{
             clerk_user_id: clerkUserId,
-            username: username,
-            display_name: user?.firstName || user?.username || username,
+            username: clerkUsername,
+            display_name: user?.firstName || clerkUsername,
             avatar_url: user?.imageUrl || '',
             bio: '',
           }])
@@ -64,6 +52,20 @@ export async function GET() {
         return NextResponse.json({ profile: newProfile }, { status: 200 });
       }
       throw error;
+    }
+
+    // Sync username from Clerk if it has changed
+    if (user?.username && data.username !== user.username) {
+      const { data: updatedProfile } = await supabase
+        .from('profiles')
+        .update({ username: user.username })
+        .eq('clerk_user_id', clerkUserId)
+        .select()
+        .single();
+      
+      if (updatedProfile) {
+        return NextResponse.json({ profile: updatedProfile }, { status: 200 });
+      }
     }
 
     return NextResponse.json({ profile: data }, { status: 200 });
@@ -139,16 +141,21 @@ export async function POST(request) {
 export async function PATCH(request) {
   try {
     const clerkUserId = await getClerkUserId();
+    const user = await currentUser();
     const supabase = await createClerkSupabaseClient();
     
     const body = await request.json();
-    const { username, display_name, bio, avatar_url, cover_image_url, website_url, location } = body;
+    const { display_name, bio, avatar_url, cover_image_url, website_url, location } = body;
 
-    // Update profile
+    // Username is NOT allowed to be updated - it comes from Clerk
+    // Always use the username from Clerk
+    const clerkUsername = user?.username;
+
+    // Update profile (excluding username which is managed by Clerk)
     const { data, error } = await supabase
       .from('profiles')
       .update({
-        ...(username && { username }),
+        username: clerkUsername, // Always sync from Clerk
         ...(display_name !== undefined && { display_name }),
         ...(bio !== undefined && { bio }),
         ...(avatar_url !== undefined && { avatar_url }),

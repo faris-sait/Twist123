@@ -245,16 +245,26 @@ export function EditProfileDialog({ profile, open, onOpenChange, onProfileUpdate
             </p>
           </div>
 
-          {/* Username */}
+          {/* Username - Read Only from Clerk */}
           <div className="space-y-2">
-            <Label htmlFor="username">Username *</Label>
+            <Label htmlFor="username">Username</Label>
             <Input
               id="username"
               placeholder="@username"
               value={formData.username}
-              onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-              required
+              disabled
+              className="bg-muted cursor-not-allowed opacity-60"
             />
+            <div className="text-xs text-muted-foreground space-y-1 p-3 bg-muted/50 rounded-md border border-yellow-500/20">
+              <p className="font-semibold text-foreground">To change your username:</p>
+              <ol className="list-decimal list-inside space-y-1 ml-2">
+                <li>Click on your profile icon (top right)</li>
+                <li>Select "Manage Account"</li>
+                <li>Go to "Username" section</li>
+                <li>Update your username there</li>
+              </ol>
+              <p className="text-xs italic mt-2">Changes will sync automatically to your profile</p>
+            </div>
           </div>
 
           {/* Display Name */}
