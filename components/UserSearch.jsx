@@ -13,19 +13,41 @@ export function UserSearch({ onMessageUser, onViewProfile }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [searchPerformed, setSearchPerformed] = useState(false);
+
+  // Fetch all users on mount
+  useEffect(() => {
+    fetchAllUsers();
+  }, []);
+
+  const fetchAllUsers = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/users/search?q=');
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to fetch users');
+      }
+
+      setUsers(data.users || []);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Debounced search function
   const performSearch = useCallback(async (query) => {
     if (query.length === 0) {
-      setUsers([]);
-      setSearchPerformed(false);
+      // Show all users when search is empty
+      fetchAllUsers();
       return;
     }
 
     // Search starts with just 1 character
     setLoading(true);
-    setSearchPerformed(true);
 
     try {
       const res = await fetch(`/api/users/search?q=${encodeURIComponent(query)}`);
@@ -60,6 +82,8 @@ export function UserSearch({ onMessageUser, onViewProfile }) {
     // Form submit will trigger immediate search
     if (searchQuery.length >= 1) {
       performSearch(searchQuery);
+    } else {
+      fetchAllUsers();
     }
   };
 
@@ -148,14 +172,17 @@ export function UserSearch({ onMessageUser, onViewProfile }) {
             </div>
           </form>
           <p className="text-xs text-muted-foreground mt-2">
-            Results appear as you type
+            Search by username or name, or browse all users below
           </p>
         </CardContent>
       </Card>
 
       {/* Search Results */}
-      {searchPerformed && users.length > 0 && (
+      {users.length > 0 && (
         <div className="space-y-3">
+          <h3 className="text-sm font-medium text-muted-foreground">
+            {searchQuery ? `Search results for "${searchQuery}"` : 'All Users'}
+          </h3>
           {users.map((user) => (
             <Card key={user.id} className="hover:shadow-md transition-shadow">
               <CardContent className="p-4">
@@ -213,10 +240,19 @@ export function UserSearch({ onMessageUser, onViewProfile }) {
       )}
 
       {/* No results message */}
-      {searchPerformed && !loading && users.length === 0 && searchQuery.length > 0 && (
+      {!loading && users.length === 0 && searchQuery.length > 0 && (
         <Card>
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">No users found matching "{searchQuery}"</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Loading state */}
+      {loading && (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
           </CardContent>
         </Card>
       )}

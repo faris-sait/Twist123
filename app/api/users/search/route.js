@@ -10,13 +10,6 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const query = searchParams.get('q') || '';
 
-    if (!query || query.length < 1) {
-      return NextResponse.json(
-        { error: 'Search query must be at least 1 character' },
-        { status: 400 }
-      );
-    }
-
     // Get current user's profile ID
     const { data: currentProfile } = await supabase
       .from('profiles')
@@ -32,13 +25,18 @@ export async function GET(request) {
       cacheKey,
       CACHE_TTL.USER_SEARCH,
       async () => {
-        // Search for users by username or display_name
-        const { data: users, error } = await supabase
+        // Search for users by username or display_name, or get all if no query
+        let dbQuery = supabase
           .from('profiles')
           .select('id, username, display_name, avatar_url, bio, is_verified')
-          .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
-          .neq('id', currentProfile?.id || '') // Exclude current user
-          .limit(10);
+          .neq('id', currentProfile?.id || ''); // Exclude current user
+        
+        // If there's a search query, filter by it
+        if (query && query.length > 0) {
+          dbQuery = dbQuery.or(`username.ilike.%${query}%,display_name.ilike.%${query}%`);
+        }
+        
+        const { data: users, error } = await dbQuery.limit(20);
 
         if (error) {
           throw error;

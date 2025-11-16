@@ -47,6 +47,7 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
   const { user } = useUser();
   const shouldAutoScrollRef = useRef(true); // Only scroll on initial load
   const fileInputRef = useRef(null);
+  const inputRef = useRef(null);
 
   useEffect(() => {
     fetchUserProfile();
@@ -134,6 +135,8 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
         if (onMessageSent) onMessageSent();
         // Scroll to bottom after sending a message
         setTimeout(() => scrollToBottom(), 100);
+        // Focus back on input after sending
+        setTimeout(() => inputRef.current?.focus(), 100);
       } else {
         throw new Error(data.error || 'Failed to send message');
       }
@@ -540,6 +543,7 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
           </div>
           
           <Input
+            ref={inputRef}
             type="text"
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
