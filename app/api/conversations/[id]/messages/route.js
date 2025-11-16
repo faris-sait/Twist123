@@ -41,6 +41,7 @@ export async function GET(request, { params }) {
       .select(`
         id,
         encrypted_content,
+        image_url,
         created_at,
         is_read,
         sender_id,
@@ -62,19 +63,30 @@ export async function GET(request, { params }) {
       .map(msg => msg.id) || [];
 
     if (unreadMessageIds.length > 0) {
-      await supabase
+      console.log(`Marking ${unreadMessageIds.length} messages as read for user ${profile.id}`);
+      const { data: updateData, error: updateError } = await supabase
         .from('messages')
         .update({ is_read: true })
-        .in('id', unreadMessageIds);
+        .in('id', unreadMessageIds)
+        .select();
+      
+      if (updateError) {
+        console.error('Error updating read status:', updateError);
+      } else {
+        console.log('Successfully marked messages as read:', updateData);
+      }
     }
 
-    // Decrypt all messages and update is_read status
-    const decryptedMessages = messages?.map(msg => ({
-      ...msg,
-      content: decrypt(msg.encrypted_content),
-      encrypted_content: undefined,
-      is_read: unreadMessageIds.includes(msg.id) ? true : msg.is_read
-    })) || [];
+    // Decrypt all messages and update is_read status in response
+    const decryptedMessages = messages?.map(msg => {
+      const wasMarkedRead = unreadMessageIds.includes(msg.id);
+      return {
+        ...msg,
+        content: decrypt(msg.encrypted_content),
+        encrypted_content: undefined,
+        is_read: wasMarkedRead ? true : msg.is_read
+      };
+    }) || [];
 
     // Update last_read_at for this user
     await supabase
@@ -100,11 +112,11 @@ export async function POST(request, { params }) {
     const supabase = await createClerkSupabaseClient();
     const { id } = await params;
     const body = await request.json();
-    const { content } = body;
+    const { content, image_url } = body;
 
-    if (!content || !content.trim()) {
+    if ((!content || !content.trim()) && !image_url) {
       return NextResponse.json(
-        { error: 'Message content is required' },
+        { error: 'Message content or image is required' },
         { status: 400 }
       );
     }
@@ -135,20 +147,22 @@ export async function POST(request, { params }) {
       );
     }
 
-    // Encrypt the message content before storing
-    const encryptedContent = encrypt(content.trim());
+    // Encrypt the message content before storing (if content exists)
+    const encryptedContent = content && content.trim() ? encrypt(content.trim()) : encrypt('📷 Image');
 
-    // Create message with encrypted content
+    // Create message with encrypted content and optional image
     const { data: message, error } = await supabase
       .from('messages')
       .insert([{
         conversation_id: id,
         sender_id: profile.id,
         encrypted_content: encryptedContent,
+        image_url: image_url || null,
       }])
       .select(`
         id,
         encrypted_content,
+        image_url,
         created_at,
         is_read,
         sender_id,

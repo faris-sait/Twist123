@@ -426,6 +426,11 @@ export default function App() {
                   friendsCount={friendsCount}
                   isOwnProfile={true}
                   onEditProfile={() => setShowEditProfile(true)}
+                  onRefresh={async () => {
+                    toast.info('Refreshing profile...');
+                    await fetchProfile();
+                    toast.success('Profile updated!');
+                  }}
                 />
 
                 {/* User's Posts */}
