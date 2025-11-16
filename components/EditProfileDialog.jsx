@@ -16,6 +16,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Camera, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { compressImage, formatFileSize, getBase64Size } from '@/lib/imageCompression';
 
 export function EditProfileDialog({ profile, open, onOpenChange, onProfileUpdated }) {
   const [formData, setFormData] = useState({
@@ -33,96 +34,60 @@ export function EditProfileDialog({ profile, open, onOpenChange, onProfileUpdate
   const [coverPreview, setCoverPreview] = useState(profile?.cover_image_url || '');
   const [uploading, setUploading] = useState(false);
 
-  const handleAvatarChange = (e) => {
+  const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Check file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image must be less than 5MB');
-        return;
-      }
-
       // Check file type
       if (!file.type.startsWith('image/')) {
         toast.error('Please upload an image file');
         return;
       }
 
-      setAvatarFile(file);
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Compress image silently
+        const compressedBase64 = await compressImage(file, 5, 800);
+        
+        setAvatarFile(file);
+        setAvatarPreview(compressedBase64);
+      } catch (error) {
+        console.error('Error processing image:', error);
+        toast.error('Failed to process image');
+      }
     }
   };
 
-  const handleCoverChange = (e) => {
+  const handleCoverChange = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Check file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Image must be less than 5MB');
-        return;
-      }
-
       // Check file type
       if (!file.type.startsWith('image/')) {
         toast.error('Please upload an image file');
         return;
       }
 
-      setCoverFile(file);
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCoverPreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Compress image silently
+        const compressedBase64 = await compressImage(file, 5, 1920);
+        
+        setCoverFile(file);
+        setCoverPreview(compressedBase64);
+      } catch (error) {
+        console.error('Error processing cover image:', error);
+        toast.error('Failed to process cover image');
+      }
     }
   };
 
   const uploadAvatar = async () => {
     if (!avatarFile) return formData.avatar_url;
-
-    try {
-      // Convert file to base64
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(avatarFile);
-      });
-
-      return base64;
-    } catch (error) {
-      console.error('Error uploading avatar:', error);
-      toast.error('Failed to upload avatar');
-      return formData.avatar_url;
-    }
+    // Return the already compressed preview
+    return avatarPreview;
   };
 
   const uploadCover = async () => {
     if (!coverFile) return formData.cover_image_url;
-
-    try {
-      // Convert file to base64
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(coverFile);
-      });
-
-      return base64;
-    } catch (error) {
-      console.error('Error uploading cover:', error);
-      toast.error('Failed to upload cover image');
-      return formData.cover_image_url;
-    }
+    // Return the already compressed preview
+    return coverPreview;
   };
 
   const handleSubmit = async (e) => {

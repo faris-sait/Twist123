@@ -25,6 +25,7 @@ import {
   X
 } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
+import { compressImage } from '@/lib/imageCompression';
 
 // Dynamically import emoji picker to avoid SSR issues
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
@@ -107,16 +108,9 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
     setIsSending(true);
 
     try {
-      // Convert image to base64 if selected
-      if (selectedImage) {
-        setIsUploadingImage(true);
-        imageUrl = await new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.onerror = reject;
-          reader.readAsDataURL(selectedImage);
-        });
-        setIsUploadingImage(false);
+      // Use the already compressed image preview
+      if (selectedImage && imagePreview) {
+        imageUrl = imagePreview;
       }
 
       // Send message with or without image
@@ -152,25 +146,24 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
     }
   };
 
-  const handleImageSelect = (e) => {
+  const handleImageSelect = async (e) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        alert('Image size must be less than 5MB');
-        return;
-      }
-      
       if (!file.type.startsWith('image/')) {
         alert('Please select an image file');
         return;
       }
 
-      setSelectedImage(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result);
-      };
-      reader.readAsDataURL(file);
+      try {
+        // Compress image silently
+        const compressedBase64 = await compressImage(file, 5, 1920);
+        
+        setSelectedImage(file);
+        setImagePreview(compressedBase64);
+      } catch (error) {
+        console.error('Error processing image:', error);
+        alert('Failed to process image');
+      }
     }
   };
 

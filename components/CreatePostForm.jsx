@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { PenSquare, Loader2, Image as ImageIcon, Smile, MapPin, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { compressImage, formatFileSize, getBase64Size } from '@/lib/imageCompression';
 
 // Dynamically import emoji picker to avoid SSR issues
 const EmojiPicker = dynamic(() => import('emoji-picker-react'), { ssr: false });
@@ -21,7 +22,7 @@ export function CreatePostForm({ profile, onPostCreated }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const fileInputRef = useRef(null);
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (e) => {
     const files = Array.from(e.target.files || []);
     
     if (files.length + images.length > 4) {
@@ -29,23 +30,22 @@ export function CreatePostForm({ profile, onPostCreated }) {
       return;
     }
 
-    files.forEach((file) => {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error(`${file.name} is too large. Max size is 5MB`);
-        return;
-      }
-
+    for (const file of files) {
       if (!file.type.startsWith('image/')) {
         toast.error(`${file.name} is not an image`);
-        return;
+        continue;
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImages((prev) => [...prev, reader.result]);
-      };
-      reader.readAsDataURL(file);
-    });
+      try {
+        // Compress image silently
+        const compressedBase64 = await compressImage(file, 5, 1920);
+        
+        setImages((prev) => [...prev, compressedBase64]);
+      } catch (error) {
+        console.error('Error processing image:', error);
+        toast.error(`Failed to process ${file.name}`);
+      }
+    }
   };
 
   const removeImage = (index) => {
