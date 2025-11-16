@@ -41,6 +41,7 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [fullImageView, setFullImageView] = useState(null);
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const { user } = useUser();
@@ -268,6 +269,37 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
 
   return (
     <div className="flex flex-col h-full glass">
+      {/* Full Image View Modal */}
+      {fullImageView && (
+        <div 
+          className="fixed inset-0 z-50 bg-black flex flex-col"
+          onClick={() => setFullImageView(null)}
+        >
+          <div 
+            className="p-4 flex items-center gap-3 bg-black/50 backdrop-blur-xl flex-shrink-0"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setFullImageView(null)}
+              className="glass-hover text-white"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <span className="text-white font-medium">Image</span>
+          </div>
+          <div className="flex-1 flex items-center justify-center p-4 overflow-auto">
+            <img 
+              src={fullImageView} 
+              alt="Full size" 
+              className="max-w-full max-h-full object-contain"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="p-4 border-b border-white/10 flex items-center gap-3 backdrop-blur-xl">
         <Button
@@ -387,14 +419,12 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
                               }`}
                             >
                               {message.image_url && (
-                                <div className="relative">
-                                  <img 
-                                    src={message.image_url} 
-                                    alt="Shared image" 
-                                    className="max-w-full max-h-80 object-contain rounded-t-2xl cursor-pointer hover:opacity-90 transition-opacity"
-                                    onClick={() => window.open(message.image_url, '_blank')}
-                                  />
-                                </div>
+                                <img 
+                                  src={message.image_url} 
+                                  alt="Shared image" 
+                                  className="max-w-full max-h-80 object-contain rounded-t-2xl cursor-pointer hover:opacity-90 transition-opacity"
+                                  onClick={() => setFullImageView(message.image_url)}
+                                />
                               )}
                               {message.content && message.content !== '📷 Image' && (
                                 <p className={`text-sm whitespace-pre-wrap break-words ${message.image_url ? 'px-4 py-2' : 'px-4 py-2'}`}>
