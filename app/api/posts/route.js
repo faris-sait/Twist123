@@ -3,68 +3,40 @@ import { createClerkSupabaseClient, getClerkUserId } from '@/lib/supabase/clerk-
 import { createServiceSupabaseClient } from '@/lib/supabase/service-client';
 import { getCachedOrFetch, CACHE_KEYS, CACHE_TTL } from '@/lib/redis/client';
 
-// GET /api/posts - Get posts feed (only from friends)
+// GET /api/posts - Get posts feed (all public posts)
 export async function GET(request) {
   try {
-    const clerkUserId = await getClerkUserId();
     const supabase = await createClerkSupabaseClient();
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '20');
     const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Get user's profile ID
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('clerk_user_id', clerkUserId)
-      .single();
+    // Fetch posts with Redis caching
+    const posts = await getCachedOrFetch(
+      CACHE_KEYS.feed(limit, offset),
+      CACHE_TTL.FEED,
+      async () => {
+        const { data, error } = await supabase
+          .from('posts')
+          .select(`
+            *,
+            author:profiles!posts_author_id_fkey (
+              id,
+              username,
+              display_name,
+              avatar_url,
+              is_verified
+            )
+          `)
+          .order('created_at', { ascending: false })
+          .range(offset, offset + limit - 1);
 
-    if (profileError || !profile) {
-      return NextResponse.json(
-        { error: 'Profile not found' },
-        { status: 404 }
-      );
-    }
-
-    // Get all friend IDs (both directions)
-    const { data: friendships, error: friendError } = await supabase
-      .from('friendships')
-      .select('requester_id, addressee_id')
-      .eq('status', 'accepted')
-      .or(`requester_id.eq.${profile.id},addressee_id.eq.${profile.id}`);
-
-    if (friendError) throw friendError;
-
-    // Extract friend IDs
-    const friendIds = friendships.map(friendship => 
-      friendship.requester_id === profile.id ? friendship.addressee_id : friendship.requester_id
+        if (error) throw error;
+        return data || [];
+      }
     );
 
-    // If no friends, return empty array
-    if (friendIds.length === 0) {
-      return NextResponse.json({ posts: [] }, { status: 200 });
-    }
-
-    // Fetch posts only from friends
-    const { data, error } = await supabase
-      .from('posts')
-      .select(`
-        *,
-        author:profiles!posts_author_id_fkey (
-          id,
-          username,
-          display_name,
-          avatar_url,
-          is_verified
-        )
-      `)
-      .in('author_id', friendIds)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) throw error;
-
-    return NextResponse.json({ posts: data || [] }, { status: 200 });
+    return NextResponse.json({ posts }, { status: 200 });
   } catch (error) {
     console.error('Error fetching posts:', error);
     return NextResponse.json(
