@@ -6,6 +6,7 @@ import { Home, User, Bell, Search, Users, UserPlus, Plus, MessageCircle } from '
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
+import { TwistLogo } from '@/components/TwistLogo';
 
 export function Navigation({ activeTab, onTabChange, friendRequestsCount = 0, notificationsCount = 0, unreadMessagesCount = 0 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -147,9 +148,7 @@ export function Navigation({ activeTab, onTabChange, friendRequestsCount = 0, no
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center space-x-2">
-          <div className="w-10 h-10 bg-gradient-to-br from-yellow-400 via-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-lg neon-glow">
-            <span className="text-xl font-bold text-black">T</span>
-          </div>
+          <TwistLogo className="w-10 h-10" />
           <span className="text-xl font-bold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent hidden sm:inline tracking-wider">
             TWIST
           </span>
