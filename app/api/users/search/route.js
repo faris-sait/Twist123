@@ -25,18 +25,13 @@ export async function GET(request) {
       cacheKey,
       CACHE_TTL.USER_SEARCH,
       async () => {
-        // Search for users by username or display_name, or get all if no query
-        let dbQuery = supabase
+        // Search for users by username or display_name
+        const { data: users, error } = await supabase
           .from('profiles')
           .select('id, username, display_name, avatar_url, bio, is_verified')
-          .neq('id', currentProfile?.id || ''); // Exclude current user
-        
-        // If there's a search query, filter by it
-        if (query && query.length > 0) {
-          dbQuery = dbQuery.or(`username.ilike.%${query}%,display_name.ilike.%${query}%`);
-        }
-        
-        const { data: users, error } = await dbQuery.limit(20);
+          .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
+          .neq('id', currentProfile?.id || '') // Exclude current user
+          .limit(10);
 
         if (error) {
           throw error;

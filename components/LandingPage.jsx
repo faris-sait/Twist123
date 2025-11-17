@@ -4,6 +4,7 @@ import { SignInButton, SignUpButton } from '@clerk/nextjs';
 import { Button } from '@/components/ui/button';
 import { UserPlus, Users, MessageCircle, Heart, Share2 } from 'lucide-react';
 import RadialOrbitalTimeline from '@/components/ui/radial-orbital-timeline';
+import { TwistLogo } from '@/components/TwistLogo';
 
 const timelineData = [
   {
@@ -69,9 +70,12 @@ export function LandingPage() {
       {/* Left Side - Branding */}
       <div className="flex-1 flex flex-col items-center justify-center px-12 z-50">
         <div className="max-w-lg">
-          <h1 className="text-7xl font-bold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent mb-4">
-            Twist
-          </h1>
+          <div className="flex items-center gap-4 mb-4">
+            <TwistLogo className="w-20 h-20" />
+            <h1 className="text-7xl font-bold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent">
+              Twist
+            </h1>
+          </div>
           <p className="text-xl text-muted-foreground/90 mb-8 leading-relaxed">
             A modern social media platform where connections matter and conversations thrive
           </p>
