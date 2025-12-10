@@ -343,3 +343,50 @@ code {
     @apply bg-background text-foreground;
     }
 }
+
+/* Message Reply Highlight Animation */
+@keyframes highlight-pulse {
+  0% { background-color: rgba(168, 85, 247, 0.3); }
+  50% { background-color: rgba(168, 85, 247, 0.15); }
+  100% { background-color: transparent; }
+}
+
+.highlight-message {
+  animation: highlight-pulse 2s ease-out;
+  border-radius: 1rem;
+}
+
+/* Swipe to Reply Animation */
+@keyframes reply-icon-pop {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.swipe-reply-indicator {
+  animation: reply-icon-pop 0.2s ease-out;
+}
+
+/* Prevent text selection during swipe */
+.touch-pan-y {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Smooth swipe transition */
+.swipe-message {
+  will-change: transform;
+  touch-action: pan-y;
+}
+
+/* Haptic feedback visual */
+@keyframes swipe-trigger {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+.swipe-triggered {
+  animation: swipe-trigger 0.15s ease-out;
+}
