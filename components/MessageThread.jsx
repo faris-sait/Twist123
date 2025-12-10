@@ -58,7 +58,7 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
   const swipeStartX = useRef(0);
   const swipeStartY = useRef(0);
   const isSwipingRef = useRef(false);
-  const swipeThreshold = 20; // Very small threshold - triggers quickly on any intentional swipe
+  const swipeThreshold = 25; // Small threshold - quick swipe triggers reply
 
   useEffect(() => {
     fetchUserProfile();
@@ -251,20 +251,19 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
     
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    let deltaX = clientX - swipeStartX.current;
+    const rawDeltaX = clientX - swipeStartX.current;
     const deltaY = Math.abs(clientY - swipeStartY.current);
     
-    // For own messages, we need to detect LEFT swipe (negative deltaX)
-    // For other's messages, we detect RIGHT swipe (positive deltaX)
-    if (isOwn) {
-      deltaX = -deltaX; // Invert for own messages (left swipe becomes positive)
-    }
+    // For own messages (right side): LEFT swipe triggers reply (negative rawDeltaX)
+    // For friend's messages (left side): RIGHT swipe triggers reply (positive rawDeltaX)
+    const isCorrectDirection = isOwn ? rawDeltaX < 0 : rawDeltaX > 0;
+    const deltaX = Math.abs(rawDeltaX);
     
-    // Very sensitive - trigger on minimal horizontal movement
-    if (deltaX > 3 && deltaX > deltaY * 0.5) {
+    // Sensitive swipe detection - triggers on small horizontal movement
+    if (isCorrectDirection && deltaX > 5 && deltaX > deltaY) {
       isSwipingRef.current = true;
-      // More responsive swipe - direct mapping with small max
-      const maxSwipe = 60;
+      // Direct mapping for responsive feel
+      const maxSwipe = 70;
       const easedOffset = Math.min(deltaX, maxSwipe);
       setSwipeOffset(easedOffset);
       
@@ -272,8 +271,8 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
       if (e.cancelable && e.type === 'touchmove') {
         e.preventDefault();
       }
-    } else if (deltaY > deltaX * 3) {
-      // Only cancel if clearly scrolling vertically
+    } else if (deltaY > deltaX * 2) {
+      // If scrolling vertically, cancel swipe
       setSwipingMessageId(null);
       setSwipeOffset(0);
       isSwipingRef.current = false;
