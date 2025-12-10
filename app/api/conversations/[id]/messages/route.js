@@ -35,7 +35,7 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Get all messages with sender info
+    // Get all messages with sender info (without self-referential join for replies)
     const { data: messages, error } = await supabase
       .from('messages')
       .select(`
@@ -45,6 +45,7 @@ export async function GET(request, { params }) {
         created_at,
         is_read,
         sender_id,
+        reply_to_id,
         sender:profiles!messages_sender_id_fkey (
           id,
           username,
@@ -56,6 +57,12 @@ export async function GET(request, { params }) {
       .order('created_at', { ascending: true });
 
     if (error) throw error;
+
+    // Create a map of messages for quick lookup of reply_to data
+    const messageMap = new Map();
+    messages?.forEach(msg => {
+      messageMap.set(msg.id, msg);
+    });
 
     // Mark all unread messages from other users as read
     const unreadMessageIds = messages
@@ -80,11 +87,26 @@ export async function GET(request, { params }) {
     // Decrypt all messages and update is_read status in response
     const decryptedMessages = messages?.map(msg => {
       const wasMarkedRead = unreadMessageIds.includes(msg.id);
+      
+      // Look up the reply_to message from our map
+      let replyToData = null;
+      if (msg.reply_to_id && messageMap.has(msg.reply_to_id)) {
+        const replyMsg = messageMap.get(msg.reply_to_id);
+        replyToData = {
+          id: replyMsg.id,
+          content: decrypt(replyMsg.encrypted_content),
+          image_url: replyMsg.image_url,
+          sender_id: replyMsg.sender_id,
+          sender: replyMsg.sender
+        };
+      }
+      
       return {
         ...msg,
         content: decrypt(msg.encrypted_content),
         encrypted_content: undefined,
-        is_read: wasMarkedRead ? true : msg.is_read
+        is_read: wasMarkedRead ? true : msg.is_read,
+        reply_to: replyToData
       };
     }) || [];
 
@@ -112,7 +134,7 @@ export async function POST(request, { params }) {
     const supabase = await createClerkSupabaseClient();
     const { id } = await params;
     const body = await request.json();
-    const { content, image_url } = body;
+    const { content, image_url, reply_to_id } = body;
 
     if ((!content || !content.trim()) && !image_url) {
       return NextResponse.json(
@@ -150,7 +172,7 @@ export async function POST(request, { params }) {
     // Encrypt the message content before storing (if content exists)
     const encryptedContent = content && content.trim() ? encrypt(content.trim()) : encrypt('📷 Image');
 
-    // Create message with encrypted content and optional image
+    // Create message with encrypted content, optional image, and optional reply reference
     const { data: message, error } = await supabase
       .from('messages')
       .insert([{
@@ -158,6 +180,7 @@ export async function POST(request, { params }) {
         sender_id: profile.id,
         encrypted_content: encryptedContent,
         image_url: image_url || null,
+        reply_to_id: reply_to_id || null,
       }])
       .select(`
         id,
@@ -166,6 +189,7 @@ export async function POST(request, { params }) {
         created_at,
         is_read,
         sender_id,
+        reply_to_id,
         sender:profiles!messages_sender_id_fkey (
           id,
           username,
@@ -177,11 +201,42 @@ export async function POST(request, { params }) {
 
     if (error) throw error;
 
+    // Fetch reply_to message data separately if reply_to_id exists
+    let replyToData = null;
+    if (reply_to_id) {
+      const { data: replyMsg } = await supabase
+        .from('messages')
+        .select(`
+          id,
+          encrypted_content,
+          image_url,
+          sender_id,
+          sender:profiles!messages_sender_id_fkey (
+            id,
+            username,
+            display_name
+          )
+        `)
+        .eq('id', reply_to_id)
+        .single();
+      
+      if (replyMsg) {
+        replyToData = {
+          id: replyMsg.id,
+          content: decrypt(replyMsg.encrypted_content),
+          image_url: replyMsg.image_url,
+          sender_id: replyMsg.sender_id,
+          sender: replyMsg.sender
+        };
+      }
+    }
+
     // Decrypt the message before returning to client
     const decryptedMessage = {
       ...message,
       content: decrypt(message.encrypted_content),
-      encrypted_content: undefined // Remove encrypted field from response
+      encrypted_content: undefined,
+      reply_to: replyToData
     };
 
     return NextResponse.json({ message: decryptedMessage }, { status: 201 });

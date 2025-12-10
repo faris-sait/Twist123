@@ -22,7 +22,9 @@ import {
   CheckCheck,
   Image as ImageIcon,
   Smile,
-  X
+  X,
+  Reply,
+  CornerDownRight
 } from 'lucide-react';
 import { useUser } from '@clerk/nextjs';
 import { compressImage } from '@/lib/imageCompression';
@@ -42,12 +44,21 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
   const [imagePreview, setImagePreview] = useState(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [fullImageView, setFullImageView] = useState(null);
+  const [replyingTo, setReplyingTo] = useState(null); // WhatsApp-style reply state
   const scrollRef = useRef(null);
   const messagesEndRef = useRef(null);
   const { user } = useUser();
   const shouldAutoScrollRef = useRef(true); // Only scroll on initial load
   const fileInputRef = useRef(null);
   const inputRef = useRef(null);
+  
+  // Swipe to reply state
+  const [swipingMessageId, setSwipingMessageId] = useState(null);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const swipeStartX = useRef(0);
+  const swipeStartY = useRef(0);
+  const isSwipingRef = useRef(false);
+  const swipeThreshold = 20; // Very small threshold - triggers quickly on any intentional swipe
 
   useEffect(() => {
     fetchUserProfile();
@@ -69,6 +80,28 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
       shouldAutoScrollRef.current = false;
     }
   }, [messages]);
+
+  // Global mouse up handler for swipe gestures
+  useEffect(() => {
+    const handleGlobalMouseUp = () => {
+      if (swipingMessageId) {
+        // Find the message being swiped
+        const message = messages.find(m => m.id === swipingMessageId);
+        if (message && swipeOffset >= swipeThreshold) {
+          handleReply(message);
+          if (navigator.vibrate) {
+            navigator.vibrate(50);
+          }
+        }
+        setSwipeOffset(0);
+        setSwipingMessageId(null);
+        isSwipingRef.current = false;
+      }
+    };
+
+    window.addEventListener('mouseup', handleGlobalMouseUp);
+    return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
+  }, [swipingMessageId, swipeOffset, messages]);
 
   const fetchUserProfile = async () => {
     try {
@@ -115,13 +148,14 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
         imageUrl = imagePreview;
       }
 
-      // Send message with or without image
+      // Send message with or without image and optional reply
       const response = await fetch(`/api/conversations/${conversation.id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           content: messageContent || '📷 Image',
-          image_url: imageUrl 
+          image_url: imageUrl,
+          reply_to_id: replyingTo?.id || null
         }),
       });
 
@@ -132,6 +166,7 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
         setNewMessage('');
         setSelectedImage(null);
         setImagePreview(null);
+        setReplyingTo(null); // Clear reply state after sending
         if (onMessageSent) onMessageSent();
         // Scroll to bottom after sending a message
         setTimeout(() => scrollToBottom(), 100);
@@ -182,6 +217,106 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
   const handleEmojiClick = (emojiData) => {
     setNewMessage(prev => prev + emojiData.emoji);
     setShowEmojiPicker(false);
+  };
+
+  const handleReply = (message) => {
+    setReplyingTo(message);
+    // Focus on input when replying
+    setTimeout(() => inputRef.current?.focus(), 100);
+  };
+
+  const cancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  // Swipe gesture handlers
+  const swipeDirectionRef = useRef(false); // false = right swipe (other's msg), true = left swipe (own msg)
+  
+  const handleSwipeStart = (e, messageId, isOwn = false) => {
+    // Prevent if clicking on buttons or interactive elements
+    if (e.target.closest('button') || e.target.closest('a')) return;
+    
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    swipeStartX.current = clientX;
+    swipeStartY.current = clientY;
+    swipeDirectionRef.current = isOwn; // Store if this is own message (needs left swipe)
+    isSwipingRef.current = false;
+    setSwipingMessageId(messageId);
+    setSwipeOffset(0);
+  };
+
+  const handleSwipeMove = (e, message, isOwn = false) => {
+    if (!swipingMessageId || swipingMessageId !== message.id) return;
+    
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    let deltaX = clientX - swipeStartX.current;
+    const deltaY = Math.abs(clientY - swipeStartY.current);
+    
+    // For own messages, we need to detect LEFT swipe (negative deltaX)
+    // For other's messages, we detect RIGHT swipe (positive deltaX)
+    if (isOwn) {
+      deltaX = -deltaX; // Invert for own messages (left swipe becomes positive)
+    }
+    
+    // Very sensitive - trigger on minimal horizontal movement
+    if (deltaX > 3 && deltaX > deltaY * 0.5) {
+      isSwipingRef.current = true;
+      // More responsive swipe - direct mapping with small max
+      const maxSwipe = 60;
+      const easedOffset = Math.min(deltaX, maxSwipe);
+      setSwipeOffset(easedOffset);
+      
+      // Prevent scrolling when swiping horizontally
+      if (e.cancelable && e.type === 'touchmove') {
+        e.preventDefault();
+      }
+    } else if (deltaY > deltaX * 3) {
+      // Only cancel if clearly scrolling vertically
+      setSwipingMessageId(null);
+      setSwipeOffset(0);
+      isSwipingRef.current = false;
+    }
+  };
+
+  const handleSwipeEnd = (message) => {
+    if (!swipingMessageId || swipingMessageId !== message.id) return;
+    
+    // If swiped past threshold, trigger reply
+    if (swipeOffset >= swipeThreshold) {
+      handleReply(message);
+      // Add haptic feedback if available
+      if (navigator.vibrate) {
+        navigator.vibrate(50);
+      }
+    }
+    
+    // Reset swipe state with animation
+    setSwipeOffset(0);
+    setSwipingMessageId(null);
+    isSwipingRef.current = false;
+  };
+
+  const handleSwipeCancel = () => {
+    setSwipeOffset(0);
+    setSwipingMessageId(null);
+    isSwipingRef.current = false;
+  };
+
+  // Get display name for reply preview
+  const getReplyDisplayName = (message) => {
+    if (message.sender_id === currentUserProfileId) {
+      return 'You';
+    }
+    return message.sender?.display_name || message.sender?.username || 'Unknown';
+  };
+
+  // Truncate message content for reply preview
+  const truncateReplyContent = (content, maxLength = 100) => {
+    if (!content) return '';
+    if (content.length <= maxLength) return content;
+    return content.substring(0, maxLength) + '...';
   };
 
   const handleDeleteMessage = async (messageId) => {
@@ -391,36 +526,121 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
                       index === msgs.length - 1 ||
                       msgs[index + 1]?.sender_id !== message.sender_id
                     );
+                    const isBeingSwiped = swipingMessageId === message.id;
+                    const currentSwipeOffset = isBeingSwiped ? swipeOffset : 0;
 
                     return (
                       <div
                         key={message.id}
-                        className={`flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : ''} group`}
-                        onMouseEnter={() => setHoveredMessageId(message.id)}
+                        id={`message-${message.id}`}
+                        className={`relative flex items-end gap-2 ${isOwn ? 'flex-row-reverse' : ''} group transition-colors duration-500`}
+                        onMouseEnter={() => !isSwipingRef.current && setHoveredMessageId(message.id)}
                         onMouseLeave={() => setHoveredMessageId(null)}
                       >
-                        {showAvatar ? (
-                          <Avatar className="h-6 w-6 flex-shrink-0 ring-1 ring-purple-500/30">
-                            <AvatarImage src={conversation.otherParticipant?.avatar_url} />
-                            <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white">
-                              {conversation.otherParticipant?.display_name?.[0] ||
-                                conversation.otherParticipant?.username?.[0] ||
-                                '?'}
-                            </AvatarFallback>
-                          </Avatar>
-                        ) : (
-                          <div className="w-6 flex-shrink-0" />
-                        )}
-                        
-                        <div className={`flex flex-col max-w-[70%] ${isOwn ? 'items-end' : 'items-start'}`}>
-                          <div className="relative">
-                            <div
-                              className={`rounded-2xl overflow-hidden backdrop-blur-xl ${
-                                isOwn
-                                  ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white neon-glow'
-                                  : 'glass border border-white/10 text-white'
-                              }`}
-                            >
+                        {/* Swipe to reply indicator - positioned based on message ownership */}
+                        <div 
+                          className={`absolute ${isOwn ? 'right-0' : 'left-0'} top-1/2 -translate-y-1/2 z-10 flex items-center justify-center pointer-events-none`}
+                          style={{ 
+                            opacity: currentSwipeOffset > 5 ? 1 : 0,
+                            transform: `translateY(-50%) scale(${currentSwipeOffset >= swipeThreshold ? 1.3 : 1})`
+                          }}
+                        >
+                          <div className={`p-2 rounded-full transition-all duration-100 ${
+                            currentSwipeOffset >= swipeThreshold 
+                              ? 'bg-purple-500 scale-110' 
+                              : 'bg-purple-500/50'
+                          }`}>
+                            <Reply className={`h-4 w-4 ${
+                              currentSwipeOffset >= swipeThreshold 
+                                ? 'text-white' 
+                                : 'text-purple-200'
+                            }`} />
+                          </div>
+                        </div>
+
+                        {/* Swipeable message container */}
+                        <div
+                          className={`flex items-end gap-2 w-full ${isOwn ? 'flex-row-reverse' : ''} cursor-grab active:cursor-grabbing`}
+                          style={{ 
+                            transform: `translateX(${isOwn ? -currentSwipeOffset : currentSwipeOffset}px)`,
+                            transition: isBeingSwiped ? 'none' : 'transform 0.15s ease-out',
+                            touchAction: 'pan-y pinch-zoom'
+                          }}
+                          onTouchStart={(e) => handleSwipeStart(e, message.id, isOwn)}
+                          onTouchMove={(e) => handleSwipeMove(e, message, isOwn)}
+                          onTouchEnd={() => handleSwipeEnd(message)}
+                          onTouchCancel={handleSwipeCancel}
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            handleSwipeStart(e, message.id, isOwn);
+                          }}
+                          onMouseMove={(e) => {
+                            if (swipingMessageId === message.id) {
+                              handleSwipeMove(e, message, isOwn);
+                            }
+                          }}
+                          onMouseUp={() => handleSwipeEnd(message)}
+                          onMouseLeave={() => {
+                            if (swipingMessageId === message.id) {
+                              handleSwipeCancel();
+                            }
+                          }}
+                        >
+                          {showAvatar ? (
+                            <Avatar className="h-6 w-6 flex-shrink-0 ring-1 ring-purple-500/30 pointer-events-none">
+                              <AvatarImage src={conversation.otherParticipant?.avatar_url} />
+                              <AvatarFallback className="text-xs bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 text-white">
+                                {conversation.otherParticipant?.display_name?.[0] ||
+                                  conversation.otherParticipant?.username?.[0] ||
+                                  '?'}
+                              </AvatarFallback>
+                            </Avatar>
+                          ) : (
+                            <div className="w-6 flex-shrink-0" />
+                          )}
+                          
+                          <div className={`flex flex-col max-w-[70%] ${isOwn ? 'items-end' : 'items-start'}`}>
+                            <div className="relative">
+                              <div
+                                className={`rounded-2xl overflow-hidden backdrop-blur-xl select-none ${
+                                  isOwn
+                                    ? 'bg-gradient-to-r from-blue-500 to-purple-500 text-white neon-glow'
+                                    : 'glass border border-white/10 text-white'
+                                }`}
+                              >
+                              {/* Reply Preview - WhatsApp style */}
+                              {message.reply_to && (
+                                <div 
+                                  className={`mx-2 mt-2 px-3 py-2 rounded-lg border-l-4 cursor-pointer ${
+                                    isOwn 
+                                      ? 'bg-white/10 border-white/50' 
+                                      : 'bg-purple-500/20 border-purple-400'
+                                  }`}
+                                  onClick={() => {
+                                    // Scroll to replied message
+                                    const replyElement = document.getElementById(`message-${message.reply_to.id}`);
+                                    if (replyElement) {
+                                      replyElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                      replyElement.classList.add('highlight-message');
+                                      setTimeout(() => replyElement.classList.remove('highlight-message'), 2000);
+                                    }
+                                  }}
+                                >
+                                  <p className={`text-xs font-semibold ${isOwn ? 'text-white/80' : 'text-purple-300'}`}>
+                                    {message.reply_to.sender_id === currentUserProfileId 
+                                      ? 'You' 
+                                      : message.reply_to.sender?.display_name || message.reply_to.sender?.username || 'Unknown'}
+                                  </p>
+                                  {message.reply_to.image_url && (
+                                    <p className={`text-xs ${isOwn ? 'text-white/60' : 'text-gray-400'}`}>📷 Photo</p>
+                                  )}
+                                  {message.reply_to.content && message.reply_to.content !== '📷 Image' && (
+                                    <p className={`text-xs truncate max-w-[200px] ${isOwn ? 'text-white/60' : 'text-gray-400'}`}>
+                                      {truncateReplyContent(message.reply_to.content, 50)}
+                                    </p>
+                                  )}
+                                </div>
+                              )}
                               {message.image_url && (
                                 <img 
                                   src={message.image_url} 
@@ -435,15 +655,30 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
                                 </p>
                               )}
                             </div>
-                            {isOwn && hoveredMessageId === message.id && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="absolute -right-10 top-1/2 -translate-y-1/2 h-7 w-7 glass-hover opacity-0 group-hover:opacity-100 transition-opacity"
-                                onClick={() => handleDeleteMessage(message.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-400" />
-                              </Button>
+                            {/* Action buttons on hover */}
+                            {hoveredMessageId === message.id && (
+                              <div className={`absolute top-1/2 -translate-y-1/2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity ${isOwn ? '-left-20' : '-right-20'}`}>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 glass-hover"
+                                  onClick={() => handleReply(message)}
+                                  title="Reply"
+                                >
+                                  <Reply className="h-4 w-4 text-purple-400" />
+                                </Button>
+                                {isOwn && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7 glass-hover"
+                                    onClick={() => handleDeleteMessage(message.id)}
+                                    title="Delete"
+                                  >
+                                    <Trash2 className="h-4 w-4 text-red-400" />
+                                  </Button>
+                                )}
+                              </div>
                             )}
                           </div>
                           <div className={`flex items-center gap-1 mt-1 px-2 ${isOwn ? 'flex-row-reverse' : ''}`}>
@@ -461,6 +696,7 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
                             )}
                           </div>
                         </div>
+                        </div>
                       </div>
                     );
                   })}
@@ -474,6 +710,42 @@ export default function MessageThread({ conversation, onBack, onMessageSent, onC
 
       {/* Message Input */}
       <div className="p-4 border-t border-white/10 backdrop-blur-xl">
+        {/* Reply Preview - WhatsApp style */}
+        {replyingTo && (
+          <div className="mb-3 flex items-start gap-2 p-3 glass rounded-lg border border-purple-500/30">
+            <div className="flex-shrink-0 w-1 h-full min-h-[40px] bg-purple-500 rounded-full" />
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-purple-400 mb-1">
+                Replying to {getReplyDisplayName(replyingTo)}
+              </p>
+              {replyingTo.image_url && (
+                <div className="flex items-center gap-2">
+                  <img 
+                    src={replyingTo.image_url} 
+                    alt="Reply preview" 
+                    className="h-10 w-10 rounded object-cover"
+                  />
+                  <span className="text-xs text-gray-400">📷 Photo</span>
+                </div>
+              )}
+              {replyingTo.content && replyingTo.content !== '📷 Image' && (
+                <p className="text-sm text-gray-300 truncate">
+                  {truncateReplyContent(replyingTo.content, 80)}
+                </p>
+              )}
+            </div>
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={cancelReply}
+              className="flex-shrink-0 h-6 w-6 glass-hover text-gray-400 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
         {/* Image Preview */}
         {imagePreview && (
           <div className="mb-3 relative inline-block">
