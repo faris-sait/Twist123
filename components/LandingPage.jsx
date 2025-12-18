@@ -68,20 +68,20 @@ export function LandingPage() {
   return (
     <div className="h-screen w-full relative overflow-hidden flex items-center">
       {/* Left Side - Branding */}
-      <div className="flex-1 flex flex-col items-center justify-center px-12 z-50">
-        <div className="max-w-lg">
-          <div className="flex items-center gap-4 mb-4">
-            <TwistLogo className="w-20 h-20" />
-            <h1 className="text-7xl font-bold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 md:px-12 z-50">
+        <div className="max-w-lg text-center md:text-left">
+          <div className="flex items-center gap-3 md:gap-4 mb-4 justify-center md:justify-start">
+            <TwistLogo className="w-16 h-16 md:w-20 md:h-20" />
+            <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-600 bg-clip-text text-transparent">
               Twist
             </h1>
           </div>
-          <p className="text-xl text-muted-foreground/90 mb-8 leading-relaxed">
+          <p className="text-lg md:text-xl text-muted-foreground/90 mb-8 leading-relaxed">
             A modern social media platform where connections matter and conversations thrive
           </p>
           
           {/* Auth Buttons */}
-          <div className="flex gap-4">
+          <div className="flex gap-4 justify-center md:justify-start">
             <SignUpButton mode="modal">
               <Button
                 size="lg"
@@ -103,8 +103,8 @@ export function LandingPage() {
         </div>
       </div>
 
-      {/* Right Side - Radial Orbital Timeline */}
-      <div className="flex-1 flex items-center justify-center h-full">
+      {/* Right Side - Radial Orbital Timeline (Desktop only) */}
+      <div className="hidden md:flex flex-1 items-center justify-center h-full">
         <RadialOrbitalTimeline timelineData={timelineData} />
       </div>
     </div>

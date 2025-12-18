@@ -168,9 +168,11 @@ export default function MessagesView({ onViewProfile }) {
   const totalGroupUnread = groups.reduce((sum, group) => sum + (group.unreadCount || 0), 0);
 
   return (
-    <div className="fixed inset-0 top-16 flex glass">
-      {/* Conversations List Sidebar */}
-      <div className="w-full md:w-96 border-r border-white/10 flex flex-col glass">
+    <div className="fixed inset-0 top-16 bottom-16 md:bottom-0 flex glass">
+      {/* Conversations List Sidebar - Hidden on mobile when a conversation/group is selected */}
+      <div className={`w-full md:w-96 border-r border-white/10 flex flex-col glass ${
+        (selectedConversation || selectedGroup) ? 'hidden md:flex' : 'flex'
+      }`}>
         {/* Header */}
         <div className="p-4 border-b border-white/10 backdrop-blur-xl">
           <div className="flex items-center justify-between mb-4">
@@ -399,8 +401,10 @@ export default function MessagesView({ onViewProfile }) {
         </ScrollArea>
       </div>
 
-      {/* Message Thread */}
-      <div className="flex-1 flex flex-col">
+      {/* Message Thread - Hidden on mobile when no conversation/group is selected */}
+      <div className={`flex-1 flex flex-col ${
+        (selectedConversation || selectedGroup) ? 'flex' : 'hidden md:flex'
+      }`}>
         {selectedConversation ? (
           <MessageThread
             conversation={selectedConversation}
