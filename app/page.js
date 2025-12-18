@@ -363,7 +363,7 @@ export default function App() {
       />
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 py-8 max-w-4xl">
+      <main className="container mx-auto px-4 py-8 max-w-4xl pb-20 md:pb-8">
         {/* User Profile View - Shows when clicking on a user */}
         {viewingUserId && (
           <UserProfileView

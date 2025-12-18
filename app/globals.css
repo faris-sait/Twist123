@@ -205,8 +205,11 @@
   filter: blur(10px);
 }
 
-.card-glow:hover::before {
-  opacity: 0.5;
+/* Only show glow on hover for non-touch devices */
+@media (hover: hover) {
+  .card-glow:hover::before {
+    opacity: 0.5;
+  }
 }
 
 body {
