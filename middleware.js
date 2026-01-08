@@ -6,6 +6,8 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/webhook(.*)',
+  '/post/(.*)',  // Allow public access to individual posts
+  '/api/posts/(.*)',  // Allow public access to fetch post data
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

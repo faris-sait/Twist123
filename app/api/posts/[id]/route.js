@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { createClerkSupabaseClient, getClerkUserId } from '@/lib/supabase/clerk-client';
+import { createServiceSupabaseClient } from '@/lib/supabase/service-client';
 
-// GET /api/posts/[id] - Get single post
+// GET /api/posts/[id] - Get single post (public access)
 export async function GET(request, { params }) {
   try {
-    const supabase = await createClerkSupabaseClient();
+    // Use service client for public access (no auth required)
+    const supabase = createServiceSupabaseClient();
     const { id } = await params;
 
     const { data, error } = await supabase
@@ -20,6 +22,7 @@ export async function GET(request, { params }) {
         )
       `)
       .eq('id', id)
+      .eq('is_public', true)  // Only allow public posts to be viewed
       .single();
 
     if (error) {
