@@ -32,6 +32,7 @@ export default function App() {
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [postsLoading, setPostsLoading] = useState(true);
   const [showCreateProfile, setShowCreateProfile] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [friendRequestsCount, setFriendRequestsCount] = useState(0);
@@ -163,6 +164,7 @@ export default function App() {
   };
 
   const fetchPosts = async () => {
+    setPostsLoading(true);
     try {
       const res = await fetch('/api/posts?limit=20');
       
@@ -176,6 +178,8 @@ export default function App() {
       console.error('Error fetching posts:', error);
       // Set empty array on error to avoid showing loading forever
       setPosts([]);
+    } finally {
+      setPostsLoading(false);
     }
   };
 
@@ -378,7 +382,9 @@ export default function App() {
         {!viewingUserId && activeTab === 'home' && (
           <div className="space-y-6">
             {/* Posts Feed */}
-            {posts.length === 0 ? (
+            {postsLoading ? (
+              <LoadingSpinner message="Loading posts..." />
+            ) : posts.length === 0 ? (
               <EmptyState type="posts" />
             ) : (
               posts.map((post) => (
