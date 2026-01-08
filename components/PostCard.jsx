@@ -90,23 +90,34 @@ export function PostCard({ post, currentUserId, onDelete, onViewProfile }) {
   };
 
   const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/post/${post.id}`;
+    
     try {
       // Try to use Web Share API if available
       if (navigator.share) {
         await navigator.share({
           title: `Post by ${post.author?.display_name || post.author?.username}`,
           text: post.content,
-          url: window.location.href
+          url: shareUrl
         });
         setShareCount(shareCount + 1);
+        toast.success('Post shared!');
       } else {
         // Fallback: Copy link to clipboard
-        await navigator.clipboard.writeText(window.location.href);
+        await navigator.clipboard.writeText(shareUrl);
         setShareCount(shareCount + 1);
+        toast.success('Link copied to clipboard!');
       }
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error('Error sharing:', error);
+        // Still try to copy to clipboard as fallback
+        try {
+          await navigator.clipboard.writeText(shareUrl);
+          toast.success('Link copied to clipboard!');
+        } catch (clipboardError) {
+          toast.error('Failed to share post');
+        }
       }
     }
   };

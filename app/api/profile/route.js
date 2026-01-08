@@ -5,9 +5,12 @@ import { currentUser } from '@clerk/nextjs/server';
 // GET /api/profile - Get current user's profile
 export async function GET() {
   try {
-    const clerkUserId = await getClerkUserId();
-    const supabase = await createClerkSupabaseClient();
-    const user = await currentUser();
+    // Fetch clerkUserId, supabase client, and user in parallel
+    const [clerkUserId, supabase, user] = await Promise.all([
+      getClerkUserId(),
+      createClerkSupabaseClient(),
+      currentUser()
+    ]);
 
     const { data, error } = await supabase
       .from('profiles')
