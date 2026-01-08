@@ -42,6 +42,23 @@ export function PostCard({ post, currentUserId, onDelete, onViewProfile }) {
     fetchLikeStatus();
   }, [post.id]);
 
+  // Fetch comment count on mount
+  useEffect(() => {
+    const fetchCommentCount = async () => {
+      try {
+        const response = await fetch(`/api/posts/${post.id}/comments/count`);
+        if (response.ok) {
+          const data = await response.json();
+          setCommentCount(data.count || 0);
+        }
+      } catch (error) {
+        console.error('Error fetching comment count:', error);
+      }
+    };
+
+    fetchCommentCount();
+  }, [post.id]);
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -90,33 +107,50 @@ export function PostCard({ post, currentUserId, onDelete, onViewProfile }) {
   };
 
   const handleShare = async () => {
-    const shareUrl = `${window.location.origin}/post/${post.id}`;
+    // Build share URL - handle both client and SSR scenarios
+    const baseUrl = typeof window !== 'undefined' 
+      ? window.location.origin 
+      : process.env.NEXT_PUBLIC_APP_URL || '';
+    const shareUrl = `${baseUrl}/post/${post.id}`;
     
     try {
-      // Try to use Web Share API if available
-      if (navigator.share) {
+      // Try to use Web Share API if available (mobile)
+      if (typeof navigator !== 'undefined' && navigator.share) {
         await navigator.share({
           title: `Post by ${post.author?.display_name || post.author?.username}`,
-          text: post.content,
+          text: post.content?.substring(0, 100) || '',
           url: shareUrl
         });
         setShareCount(shareCount + 1);
         toast.success('Post shared!');
-      } else {
+      } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
         // Fallback: Copy link to clipboard
         await navigator.clipboard.writeText(shareUrl);
         setShareCount(shareCount + 1);
         toast.success('Link copied to clipboard!');
+      } else {
+        // Final fallback: show the URL in a prompt
+        prompt('Copy this link:', shareUrl);
+        setShareCount(shareCount + 1);
       }
     } catch (error) {
       if (error.name !== 'AbortError') {
         console.error('Error sharing:', error);
-        // Still try to copy to clipboard as fallback
+        // Fallback for clipboard permission denied
         try {
-          await navigator.clipboard.writeText(shareUrl);
+          // Try older execCommand method
+          const textArea = document.createElement('textarea');
+          textArea.value = shareUrl;
+          textArea.style.position = 'fixed';
+          textArea.style.left = '-999999px';
+          document.body.appendChild(textArea);
+          textArea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textArea);
           toast.success('Link copied to clipboard!');
-        } catch (clipboardError) {
-          toast.error('Failed to share post');
+        } catch (fallbackError) {
+          // Show URL if all else fails
+          prompt('Copy this link:', shareUrl);
         }
       }
     }

@@ -64,7 +64,7 @@ export default function PostPage() {
   }, [isLoaded, isSignedIn]);
 
   const handleBack = () => {
-    router.back();
+    router.push('/');
   };
 
   const handleGoHome = () => {
