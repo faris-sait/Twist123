@@ -24,9 +24,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-      - run: npm i
-      - run: npm run build
+          cache: 'yarn'
+      - run: yarn install --frozen-lockfile
+      - run: yarn build
 
   auto-merge:
     needs: build
